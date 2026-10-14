@@ -115,3 +115,17 @@ test('selection change and cancellation discard late checkout responses and prev
   finish(Response.json({ id: 'cancelled', quantity: 1, product: products[1], continueUrl: 'https://example.com/cancelled' })); await cancelled;
   assert.equal(store.getState().checkoutStatus, 'idle');
 });
+
+test('explicit selection confirms even the initially focused bag without starting generation or checkout', async t => {
+  const urls: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (url: string) => { urls.push(url); return result('camping selection feedback fixture'); });
+  await store.search('camping selection feedback fixture');
+  store.confirmSelection('one');
+  assert.match(store.getState().assistantMessage, /Selected: Camping backpack one/);
+  store.confirmSelection('two');
+  assert.equal(store.getState().selectedId, 'two');
+  assert.match(store.getState().assistantMessage, /Selected: Camping backpack two/);
+  store.confirmSelection('unknown');
+  assert.equal(store.getState().selectedId, 'two');
+  assert.deepEqual(urls, ['/api/search']);
+});

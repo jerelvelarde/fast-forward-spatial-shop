@@ -98,6 +98,12 @@ export const store = {
     if (id === state.selectedId || !state.products.some(product => product.id === id)) return;
     update({ ...clearGeneration(), ...clearCheckout(), selectedId: id });
   },
+  confirmSelection(id: string) {
+    const product = state.products.find(item => item.id === id);
+    if (!product) return;
+    this.select(id);
+    update({ assistantMessage: `Selected: ${product.title}. Choose Try it on or Buy selected.` });
+  },
   setPhoto(photoDataUrl: string | null) {
     update({ ...clearGeneration(), photoDataUrl });
   },
