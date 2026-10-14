@@ -42,7 +42,11 @@ export async function handleApi(request: Request): Promise<Response> {
     if (path === '/api/model') {
       if (body.action === 'status') return json(await getBackpackModel(body));
       if (body.action === 'asset') return await downloadModelAsset(body);
-      if (body.action === 'start') { const result = await startBackpackModel(body); return json(result, result.status === 'ready' ? 200 : 202); }
+      if (body.action === 'start') {
+        const client = (request.headers.get('x-vercel-forwarded-for') ?? request.headers.get('x-forwarded-for') ?? 'local').split(',')[0].trim().slice(0, 64);
+        const result = await startBackpackModel(body, fetch, client);
+        return json(result, result.status === 'ready' ? 200 : 202);
+      }
       throw new ApiError(400, 'Choose a valid 3D model action.');
     }
     return json(await generateTryOn(body));

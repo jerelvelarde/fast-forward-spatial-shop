@@ -40,19 +40,20 @@ let demoAccessToken = '';
 let checkoutController: AbortController | undefined;
 let modelController: AbortController | undefined;
 let modelVersion = 0;
-const modelTasks = new Map<string, string>();
-function cachedModelTask(productId: string): string | undefined {
+interface ModelTask { taskId: string; ticket: string }
+const modelTasks = new Map<string, ModelTask>();
+function cachedModelTask(productId: string): ModelTask | undefined {
   const inMemory = modelTasks.get(productId);
   if (inMemory) return inMemory;
   try {
     const cached = JSON.parse(sessionStorage.getItem(`trail:model:${productId}`) ?? 'null');
-    if (typeof cached?.taskId === 'string' && Number.isFinite(cached?.createdAt) && Date.now() - cached.createdAt < 2 * 24 * 60 * 60 * 1000) return cached.taskId;
+    if (typeof cached?.taskId === 'string' && typeof cached?.ticket === 'string' && Number.isFinite(cached?.createdAt) && Date.now() - cached.createdAt < 2 * 24 * 60 * 60 * 1000) return { taskId: cached.taskId, ticket: cached.ticket };
   } catch { /* Session storage is optional. */ }
   return undefined;
 }
-function rememberModelTask(productId: string, taskId: string): void {
-  modelTasks.set(productId, taskId);
-  try { sessionStorage.setItem(`trail:model:${productId}`, JSON.stringify({ taskId, createdAt: Date.now() })); } catch { /* In-memory cache still works. */ }
+function rememberModelTask(productId: string, task: ModelTask): void {
+  modelTasks.set(productId, task);
+  try { sessionStorage.setItem(`trail:model:${productId}`, JSON.stringify({ ...task, createdAt: Date.now() })); } catch { /* In-memory cache still works. */ }
 }
 function forgetModelTask(productId: string): void {
   modelTasks.delete(productId);
@@ -94,7 +95,7 @@ export const store = {
   async configure() {
     try {
       const config = await responseBody(await fetch('/api/config'));
-      update({ transcriptionEnabled: config.transcriptionEnabled === true, tryOnEnabled: config.tryOnEnabled === true, modelEnabled: config.modelEnabled === true, accessTokenRequired: config.tryOnEnabled === true || config.modelEnabled === true });
+      update({ transcriptionEnabled: config.transcriptionEnabled === true, tryOnEnabled: config.tryOnEnabled === true, modelEnabled: config.modelEnabled === true, accessTokenRequired: config.tryOnEnabled === true });
     } catch {
       update({ tryOnEnabled: false, modelEnabled: false, transcriptionEnabled: false });
     }
@@ -140,11 +141,11 @@ export const store = {
   setAssistantMessage(assistantMessage: string) { update({ assistantMessage }); },
   setModelMessage(modelMessage: string) { update({ modelMessage }); },
   async downloadModelAsset(productId: string): Promise<Blob> {
-    const taskId = cachedModelTask(productId);
-    if (!taskId || state.modelProductId !== productId || state.modelStatus !== 'ready') throw new Error('Generate this product before placing it in Quest AR.');
+    const task = cachedModelTask(productId);
+    if (!task || state.modelProductId !== productId || state.modelStatus !== 'ready') throw new Error('Generate this product before placing it in Quest AR.');
     const response = await fetch('/api/model', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'asset', taskId, accessToken: demoAccessToken }),
+      body: JSON.stringify({ action: 'asset', ...task }),
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -156,8 +157,7 @@ export const store = {
     if (blob.size < 20 || blob.size > 64 * 1024 * 1024) throw new Error('The 3D file is invalid or too large for Quest.');
     return blob;
   },
-  async generateModel(accessToken?: string) {
-    if (accessToken !== undefined) demoAccessToken = accessToken;
+  async generateModel() {
     if (state.modelStatus === 'generating') return;
     const productId = state.selectedId;
     if (!productId) { update({ modelStatus: 'error', modelMessage: 'Select a product first.' }); return; }
@@ -166,26 +166,26 @@ export const store = {
     const controller = new AbortController(); modelController = controller;
     update({ modelStatus: 'generating', modelProductId: productId, modelUrl: null, modelMessage: 'Preparing the selected product in 3D…' });
     try {
-      let taskId = cachedModelTask(productId);
-      if (!taskId) {
+      let task = cachedModelTask(productId);
+      if (!task) {
         const started = await responseBody(await fetch('/api/model', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
-          body: JSON.stringify({ action: 'start', productId, query: state.query, accessToken: demoAccessToken }),
+          body: JSON.stringify({ action: 'start', productId, query: state.query }),
         }));
         if (started.productId !== productId) throw new Error('Model task did not match the selected product.');
         if (started.status === 'ready' && typeof started.modelUrl === 'string' && started.modelUrl.startsWith('/demo/')) {
           if (version === modelVersion) update({ modelStatus: 'ready', modelProductId: productId, modelUrl: started.modelUrl, modelMessage: 'Rich and this backpack are ready. Choose Place in room in Quest AR.' });
           return;
         }
-        if (typeof started.taskId !== 'string') throw new Error('Model task did not return an ID.');
-        taskId = started.taskId as string;
-        rememberModelTask(productId, taskId);
+        if (typeof started.taskId !== 'string' || typeof started.ticket !== 'string') throw new Error('Model task did not return an ID.');
+        task = { taskId: started.taskId, ticket: started.ticket };
+        rememberModelTask(productId, task);
       }
       for (let attempt = 0; attempt < 90; attempt++) {
         if (controller.signal.aborted || version !== modelVersion) return;
         const result = await responseBody(await fetch('/api/model', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
-          body: JSON.stringify({ action: 'status', taskId, accessToken: demoAccessToken }),
+          body: JSON.stringify({ action: 'status', ...task }),
         }));
         if (version !== modelVersion) return;
         if (result.status === 'ready' && typeof result.modelUrl === 'string' && result.modelUrl.startsWith('https://assets.meshy.ai/')) {
