@@ -48,6 +48,10 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
   const dialog = get<HTMLDialogElement>('.tryon-dialog');
   const voice = get<HTMLButtonElement>('#voice-button');
   let recognition: Recognition | null = null;
+  let recorder: MediaRecorder | null = null;
+  let micStream: MediaStream | null = null;
+  let micTimer: ReturnType<typeof setTimeout> | null = null;
+  let voiceVersion = 0;
   let mounted = true;
   let lastProducts: Product[] | null = null;
   let lastSelected: string | null = null;
@@ -100,7 +104,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     if (mounted && dialog.open && webcamState.phase === 'ready') void hands.start();
   }
   const openPhoto = () => { if (!dialog.open) dialog.showModal(); };
-  get<HTMLButtonElement>('#enter-vr').onclick = () => { stopWebcam(); actions.enterVR(); };
+  get<HTMLButtonElement>('#enter-vr').onclick = () => { stopWebcam(); cancelVoice(); actions.enterVR(); };
   get<HTMLFormElement>('.search-form').onsubmit = event => { event.preventDefault(); void store.search(query.value); };
   query.onkeydown = event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void store.search(query.value); } };
   get<HTMLButtonElement>('#previous-product').onclick = () => store.move(-1);
@@ -112,10 +116,12 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
   dialog.oncancel = stopWebcam;
   dialog.onclick = event => { if (event.target === dialog) dialog.close(); };
   window.addEventListener('trail:photo', openPhoto);
-  window.addEventListener('trail:xr-enter', stopWebcam);
-  const onVisibilityChange = () => { if (document.hidden) stopWebcam(); };
+  const onXrEnter = () => { stopWebcam(); cancelVoice(); };
+  window.addEventListener('trail:xr-enter', onXrEnter);
+  const onVisibilityChange = () => { if (document.hidden) { stopWebcam(); cancelVoice(); } };
+  const onPageHide = () => { stopWebcam(); cancelVoice(); };
   document.addEventListener('visibilitychange', onVisibilityChange);
-  window.addEventListener('pagehide', stopWebcam);
+  window.addEventListener('pagehide', onPageHide);
   get<HTMLButtonElement>('#use-webcam').onclick = () => { void startWebcam(); };
   get<HTMLButtonElement>('#webcam-mode').onclick = () => { openPhoto(); void startWebcam(); };
   get<HTMLButtonElement>('#webcam-previous').onclick = () => { gestureSelection = null; store.move(-1); };
@@ -150,17 +156,83 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     try { const response = await fetch('/demo/person.png'); if (!response.ok) throw new Error(); const photo = await readPhoto(await response.blob()); if (mounted && version === photoVersion) { webcamPhoto = false; store.setPhoto(photo); } }
     catch { if (mounted && version === photoVersion) get('#tryon-message').textContent = 'The demo photo could not be loaded. Please upload a photo.'; }
   };
+  const voiceMessage = get<HTMLElement>('#voice-message');
+  const setListening = (listening: boolean) => { voice.classList.toggle('listening', listening); voice.setAttribute('aria-pressed', String(listening)); voice.setAttribute('aria-label', listening ? 'Stop recording' : 'Search by voice'); };
+  const stopMicTracks = () => { micStream?.getTracks().forEach(track => track.stop()); micStream = null; if (micTimer) clearTimeout(micTimer); micTimer = null; };
+  function cancelVoice() {
+    voiceVersion++;
+    if (recorder?.state === 'recording') { recorder.onstop = null; recorder.stop(); }
+    recorder = null;
+    recognition?.stop();
+    stopMicTracks();
+    setListening(false);
+    if (mounted) voice.disabled = false;
+  }
+  async function startRecording() {
+    const version = ++voiceVersion;
+    voice.disabled = true;
+    voiceMessage.textContent = 'Requesting microphone access…';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!mounted || version !== voiceVersion) { stream.getTracks().forEach(track => track.stop()); return; }
+      micStream = stream;
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(type => MediaRecorder.isTypeSupported(type));
+      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const recording = recorder;
+      const chunks: Blob[] = [];
+      recording.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+      recording.onstop = async () => {
+        stopMicTracks();
+        setListening(false);
+        if (!mounted || version !== voiceVersion) return;
+        voice.disabled = true;
+        voiceMessage.textContent = 'Transcribing your request…';
+        try {
+          const type = recording.mimeType || mimeType || 'audio/webm';
+          const form = new FormData();
+          form.append('audio', new File(chunks, type.includes('mp4') ? 'request.m4a' : 'request.webm', { type }));
+          const response = await fetch('/api/transcribe', { method: 'POST', body: form });
+          const result = await response.json();
+          if (!response.ok || typeof result.text !== 'string') throw new Error(result.error || 'Transcription failed.');
+          if (!mounted || version !== voiceVersion) return;
+          query.value = result.text;
+          voiceMessage.textContent = `Heard: “${result.text}”`;
+          void store.search(result.text);
+        } catch (error) {
+          if (mounted && version === voiceVersion) voiceMessage.textContent = error instanceof Error ? error.message : 'Transcription failed. Type your request instead.';
+        } finally {
+          if (mounted && version === voiceVersion) voice.disabled = false;
+        }
+      };
+      recording.start();
+      voice.disabled = false;
+      setListening(true);
+      voiceMessage.textContent = 'Recording… press the mic again when you finish.';
+      micTimer = setTimeout(() => { if (recorder?.state === 'recording') recorder.stop(); }, 10000);
+    } catch {
+      stopMicTracks();
+      setListening(false);
+      if (mounted && version === voiceVersion) { voice.disabled = false; voiceMessage.textContent = 'Microphone access was declined or recording failed. Type your request instead.'; }
+    }
+  }
   const Speech = (window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition }).SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: new () => Recognition }).webkitSpeechRecognition;
   if (Speech) {
     recognition = new Speech(); recognition.lang = 'en-US'; recognition.interimResults = false; recognition.continuous = false;
-    recognition.onresult = event => { const transcript = event.results[event.results.length - 1][0].transcript; query.value = transcript; get('#voice-message').textContent = `Heard: “${transcript}”`; void store.search(transcript); };
-    recognition.onerror = event => { get('#voice-message').textContent = event.error === 'not-allowed' ? 'Microphone access was declined. You can type your search.' : 'Voice could not finish. Try again or type your search.'; };
-    recognition.onend = () => { voice.classList.remove('listening'); voice.setAttribute('aria-pressed', 'false'); };
-    voice.onclick = () => { if (voice.classList.contains('listening')) { recognition?.stop(); return; } try { recognition?.start(); voice.classList.add('listening'); voice.setAttribute('aria-pressed', 'true'); get('#voice-message').textContent = 'Listening… Tell us about your backpack.'; } catch { get('#voice-message').textContent = 'Voice is busy. Try again in a moment.'; } };
-  } else {
-    voice.disabled = true; voice.title = 'Voice is unavailable in this browser. Type your request instead.';
-    get('#voice-message').textContent = 'Voice is unavailable in this browser. Type your request above.';
+    recognition.onresult = event => { const transcript = event.results[event.results.length - 1][0].transcript; query.value = transcript; voiceMessage.textContent = `Heard: “${transcript}”`; void store.search(transcript); };
+    recognition.onerror = event => { voiceMessage.textContent = event.error === 'not-allowed' ? 'Microphone access was declined. You can type your search.' : 'Voice could not finish. Try again or type your search.'; };
+    recognition.onend = () => setListening(false);
   }
+  voice.onclick = () => {
+    if (recorder?.state === 'recording') { recorder.stop(); return; }
+    if (typeof navigator.mediaDevices?.getUserMedia === 'function' && typeof window.MediaRecorder === 'function') { void startRecording(); return; }
+    if (recognition) {
+      if (voice.classList.contains('listening')) { recognition.stop(); return; }
+      try { recognition.start(); setListening(true); voiceMessage.textContent = 'Listening… Tell us about your backpack.'; }
+      catch { voiceMessage.textContent = 'Voice is busy. Try again in a moment.'; }
+      return;
+    }
+    voiceMessage.textContent = 'Voice is unavailable in this browser. Type your request above.';
+  };
   function card(product: Product) {
     const button = node('button', 'product-card'); button.type = 'button'; button.dataset.productId = product.id;
     const imageWrap = node('div', 'product-image');
@@ -249,5 +321,5 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
   }
   const unsubscribe = store.subscribe(render);
   void store.configure();
-  return () => { mounted = false; stopWebcam(); unsubscribe(); if (recognition) { recognition.onresult = null; recognition.onerror = null; recognition.onend = null; recognition.stop(); } window.removeEventListener('trail:photo', openPhoto); window.removeEventListener('trail:xr-enter', stopWebcam); window.removeEventListener('pagehide', stopWebcam); document.removeEventListener('visibilitychange', onVisibilityChange); root.replaceChildren(); };
+  return () => { mounted = false; stopWebcam(); cancelVoice(); unsubscribe(); if (recognition) { recognition.onresult = null; recognition.onerror = null; recognition.onend = null; } window.removeEventListener('trail:photo', openPhoto); window.removeEventListener('trail:xr-enter', onXrEnter); window.removeEventListener('pagehide', onPageHide); document.removeEventListener('visibilitychange', onVisibilityChange); root.replaceChildren(); };
 }

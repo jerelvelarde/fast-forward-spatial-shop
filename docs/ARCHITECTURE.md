@@ -39,7 +39,7 @@ Hand tracking uses pinned MediaPipe Tasks Vision 1.1.0 with a locally served mod
 
 ## Input and device scope
 
-Web Speech API captures voice after user activation where supported. Typed input is always available. Prepare photo and token in the browser, then enter Quest VR. Ray selection uses IWSDK RayInteractable/UIKitML; the right thumbstick uses built-in edge helpers. Locomotion, grabbing and physics are disabled. Quest uses an HTTPS deployment; localhost supports desktop emulation. Physical Quest and microphone behavior require separate verification.
+The microphone uses MediaRecorder to capture up to ten seconds after user activation, then sends the clip to `/api/transcribe` through AI Gateway. Web Speech API is a fallback where recording is unavailable. Typed input is always available. Prepare photo and token in the browser, then enter Quest VR. Ray selection uses IWSDK RayInteractable/UIKitML; the right thumbstick uses built-in edge helpers. Locomotion, grabbing and physics are disabled. Quest uses an HTTPS deployment; localhost supports desktop emulation. Physical Quest and microphone behavior require separate verification.
 
 ## Deployment
 

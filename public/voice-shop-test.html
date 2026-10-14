@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spatial Shop · Voice and search test</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+      body { max-width: 1100px; margin: auto; padding: 24px; background: #10151e; color: #f4f7fb; }
+      h1 { margin-bottom: 8px; }
+      p { color: #bdc8d8; }
+      .controls { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0; }
+      input { flex: 1 1 400px; min-width: 0; padding: 12px; font: inherit; border-radius: 8px; border: 1px solid #778399; background: #202b3a; color: white; }
+      button { padding: 12px 18px; font: inherit; font-weight: 700; border: 0; border-radius: 8px; background: #60d7bc; color: #0c1c20; cursor: pointer; }
+      button:disabled { opacity: .5; cursor: wait; }
+      #mic { background: #d6beff; }
+      #status, #warnings { min-height: 24px; }
+      #status.error { color: #ffadad; }
+      #warnings { color: #ffd387; }
+      #results { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 24px; }
+      .card { overflow: hidden; background: #202b3a; border: 1px solid #34445a; border-radius: 12px; }
+      .card img { width: 100%; height: 210px; object-fit: contain; background: white; }
+      .card div { padding: 14px; }
+      .card h2 { font-size: 1rem; margin: 0 0 8px; }
+      .card p { margin: 6px 0; }
+      a { color: #70e1c7; }
+    </style>
+  </head>
+  <body>
+    <h1>Voice → Shop results</h1>
+    <p>US shoppers · USD prices. Speak or type a request such as “Find me a camping backpack under 150 US dollars.”</p>
+    <div class="controls">
+      <input id="request" aria-label="Shopping request" value="Find me a camping backpack under 150 US dollars" />
+      <button id="search">Search live</button>
+      <button id="mic" aria-label="Start recording">🎙 Start talking</button>
+    </div>
+    <p id="status" role="status"></p>
+    <p id="warnings"></p>
+    <div id="results" aria-live="polite"></div>
+    <script type="module">
+      const input = document.querySelector('#request');
+      const searchButton = document.querySelector('#search');
+      const micButton = document.querySelector('#mic');
+      const status = document.querySelector('#status');
+      const warnings = document.querySelector('#warnings');
+      const results = document.querySelector('#results');
+      let recorder;
+      let stream;
+      let searchSequence = 0;
+
+      function setStatus(message, error = false) {
+        status.textContent = message;
+        status.classList.toggle('error', error);
+      }
+
+      async function search() {
+        const text = input.value.trim();
+        if (!text) return setStatus('Type or speak a product request.', true);
+        const sequence = ++searchSequence;
+        searchButton.disabled = true;
+        setStatus('Searching live products…');
+        warnings.textContent = '';
+        results.replaceChildren();
+        try {
+          const response = await fetch('/api/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: text }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Search failed.');
+          if (sequence !== searchSequence) return;
+          warnings.textContent = data.message || '';
+          setStatus(data.products.length
+            ? `${data.products.length} live products for “${data.query}”`
+            : 'No available camping backpacks matched this request and price.');
+          for (const product of data.products) {
+            const card = document.createElement('article');
+            card.className = 'card';
+            if (product.imageUrl) {
+              const image = document.createElement('img');
+              image.src = product.imageUrl;
+              image.alt = product.title;
+              card.append(image);
+            }
+            const body = document.createElement('div');
+            const heading = document.createElement('h2');
+            heading.textContent = product.title;
+            const seller = document.createElement('p');
+            seller.textContent = product.seller;
+            const price = document.createElement('p');
+            price.textContent = new Intl.NumberFormat('en-US', {
+              style: 'currency', currency: product.currency,
+            }).format(product.price / 100);
+            const link = document.createElement('a');
+            link.href = product.url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = 'View product';
+            body.append(heading, seller, price, link);
+            card.append(body);
+            results.append(card);
+          }
+        } catch (error) {
+          if (sequence === searchSequence) setStatus(error.message || 'Search failed.', true);
+        } finally {
+          searchButton.disabled = false;
+        }
+      }
+
+      async function startRecording() {
+        if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+          return setStatus('Recording is unavailable here. Type your request instead.', true);
+        }
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+            .find((type) => MediaRecorder.isTypeSupported(type));
+          recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+          const chunks = [];
+          recorder.addEventListener('dataavailable', (event) => {
+            if (event.data.size) chunks.push(event.data);
+          });
+          recorder.addEventListener('stop', async () => {
+            stream.getTracks().forEach((track) => track.stop());
+            micButton.disabled = true;
+            setStatus('Transcribing…');
+            try {
+              const type = recorder.mimeType || mimeType || 'audio/webm';
+              const extension = type.includes('mp4') ? 'm4a' : 'webm';
+              const audio = new File(chunks, `request.${extension}`, { type });
+              const form = new FormData();
+              form.append('audio', audio);
+              const response = await fetch('/api/transcribe', { method: 'POST', body: form });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || 'Transcription failed.');
+              input.value = data.text;
+              setStatus(`Heard: “${data.text}”`);
+              await search();
+            } catch (error) {
+              setStatus(`${error.message || 'Transcription failed.'} You can type your request.`, true);
+            } finally {
+              micButton.disabled = false;
+              micButton.textContent = '🎙 Start talking';
+            }
+          }, { once: true });
+          recorder.start();
+          micButton.textContent = '■ Stop recording';
+          setStatus('Recording… press Stop when you finish.');
+          setTimeout(() => { if (recorder?.state === 'recording') recorder.stop(); }, 10000);
+        } catch {
+          stream?.getTracks().forEach((track) => track.stop());
+          setStatus('Microphone access was denied. Type your request instead.', true);
+        }
+      }
+
+      searchButton.addEventListener('click', search);
+      input.addEventListener('keydown', (event) => { if (event.key === 'Enter') search(); });
+      micButton.addEventListener('click', () => {
+        if (recorder?.state === 'recording') recorder.stop();
+        else startRecording();
+      });
+    </script>
+  </body>
+</html>

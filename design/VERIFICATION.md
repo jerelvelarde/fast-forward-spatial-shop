@@ -17,7 +17,7 @@
 | Return to browser | xr exit preserved live results; `verify/final-desktop.png` |
 | Responsive reading | Browser checks at 1280×720 and 390×844; bounded desktop left-panel scroll and opaque phone reading surface |
 | Type safety | `npm run typecheck` includes frontend, backend, adapters, tests and Vite config |
-| Behavioral tests | `npm test`: 28 tests pass — catalog/store/server cases, eight webcam lifecycle/capture cases, and eight gesture cases including mirrored direction, jitter, cooldown, pinch hold/release, tracking loss and stale timestamps |
+| Behavioral tests | `npm test`: 29 tests pass — catalog/store/server cases, eight webcam lifecycle/capture cases, and eight gesture cases including mirrored direction, jitter, cooldown, pinch hold/release, tracking loss and stale timestamps |
 | Before/after browser regression | `/tests/browser/webcam.html` verifies original/after image separation, product changes clearing old output, capture showing a new Before, and camera tracks ending after capture; synthetic frames and mocked API responses |
 | Actual hand model in browser | The same harness loads the real local model/WASM in a worker and processes synthetic video frames, yielding the expected no-hand result; no real camera opened |
 | Live AI integration | Local `/api/search` → `/api/try-on` with the supplied video frame and live Scout 55L Hiking Backpacks listing ($99.99 at test time) returned a generated image through AI Gateway |
@@ -49,3 +49,5 @@ Two authorized Gateway generations were run after local credentials were configu
 ## Gesture integration review
 
 The first browser smoke test caught a MediaPipe module-worker initialization failure despite passing TypeScript and unit checks. The default resolver chose a classic WASM loader whose factory was not exposed after dynamic import. Selecting the package's ES-module loader fixed startup; the real inference/capture browser harness then passed all ten checks with no console errors. No additional paid AI call was needed to verify comparison state.
+
+Merged the concurrent voice-transcription update from `556ef52`, retaining microphone and webcam cleanup on VR entry, page exit and tab hiding. Re-ran typecheck, all 29 tests, production build and the synthetic webcam browser regression after resolving the shared desktop handler conflict.
