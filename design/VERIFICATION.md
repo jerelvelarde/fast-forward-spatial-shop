@@ -85,3 +85,9 @@ Browser regression page: `/tests/browser/checkout.html` (development only). No r
 ## Production AI configuration — October 14, 2026
 
 With explicit user approval, the existing AI Gateway key and demo token were stored as Vercel production Secrets; the image model was stored as Config. Redeployment `dpl_EJZRKcnGRLLb8if5WcmWBVBqoQUR` reached READY. The public `/api/config` reports both `tryOnEnabled: true` and `transcriptionEnabled: true`. Unauthenticated try-on returns 401; the approved token passes authorization and a missing photo returns 400. Transcription rejects missing audio with 400. These configuration checks made no paid model requests. Physical Quest microphone/passthrough testing remains pending.
+
+## Quest entry and selection bug fixes — October 14, 2026
+
+The navigation reproduction failed on missing XR permission guidance, missing AR fallback and missing selection confirmation before the patch. It now passes those checks and the photo-setup handoff. The XR fixture uses the actual IWSDK scene, renderer and native-session adapter with IWER and synthetic inventory: VR reports `session active`, `renderer presenting: true`, `opaque`; exit restores the browser; AR re-entry reports `alpha-blend`. A controller ray aimed at a backpack image selects its exact variant and updates the spatial preview/confirmation. Evidence: `design/verify/xr-card-selection.jpg`; isolated panels: `quest-selection-panel.png` and `quest-product-card.png`.
+
+Typecheck and 56 Node tests pass, covering native request timing, reference-space fallback, rejected permission, renderer failure cleanup, duplicate requests, camera restore and explicit selection confirmation. Tests and build were run against a clean source snapshot because separate Rich-demo work was in progress in the shared directory. Existing dependency and Vite bundle-size warnings remain. Physical Quest testing is still required; the exact original device-side rejection is unknown. See `docs/BUGS.md`.

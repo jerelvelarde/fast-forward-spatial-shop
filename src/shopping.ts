@@ -16,8 +16,8 @@ export class ShoppingSystem extends createSystem({}) {
     const preview = this.world.requireSceneObject<UIKitMLAsset>('try-on-panel');
     const bind = (panel: UIKitMLAsset, id: string, action: () => void) => {
       const element = panel.requireElementById(id);
-      element.addEventListener('click', action);
-      this.cleanupFuncs.push(() => element.removeEventListener('click', action));
+      element.setProperties({ onClick: action, pointerEvents: 'auto' });
+      this.cleanupFuncs.push(() => element.setProperties({ onClick: undefined }));
     };
     bind(controls, 'voice', () => window.dispatchEvent(new Event('trail:voice')));
     bind(controls, 'checkout', () => window.dispatchEvent(new Event('trail:checkout')));
@@ -28,16 +28,18 @@ export class ShoppingSystem extends createSystem({}) {
     bind(controls, 'prev', () => store.move(-1));
     bind(controls, 'next', () => store.move(1));
     bind(controls, 'exit', () => { void this.world.exitXR(); });
-    bind(controls, 'try-on', () => { void store.generateTryOn(); });
+    bind(controls, 'try-on', () => window.dispatchEvent(new Event('trail:try-on')));
+    bind(preview, 'try-selected', () => window.dispatchEvent(new Event('trail:try-on')));
+    bind(preview, 'buy-selected', () => window.dispatchEvent(new Event('trail:checkout')));
     bind(controls, 'model', () => {
       if (store.getState().modelStatus === 'ready') window.dispatchEvent(new Event('trail:place-model'));
       else void store.generateModel();
     });
-    cards.forEach((card, slot) => bind(card, 'select', () => {
+    cards.forEach((card, slot) => bind(card, 'card', () => {
       const state = store.getState();
       const index = state.products.findIndex(product => product.id === state.selectedId);
       const product = state.products[this.cardIndex(slot, Math.max(index, 0), state.products.length)];
-      if (product) store.select(product.id);
+      if (product) store.confirmSelection(product.id);
       else if (state.status !== 'searching') void store.search();
     }));
     const sync = (state: StoreState) => {
@@ -57,8 +59,10 @@ export class ShoppingSystem extends createSystem({}) {
       const modelButton = controls.requireElementById<UIKit.Text>('model');
       modelButton.setProperties({ text: state.modelStatus === 'ready' ? 'Place in room' : state.modelStatus === 'generating' ? 'Generating...' : 'Generate 3D', display: state.modelEnabled ? 'flex' : 'none' });
       text(controls, 'caption', state.modelMessage ? state.modelMessage.slice(0, 125) : state.assistantMessage ? state.assistantMessage.slice(0, 125) : state.products.length ? `${index + 1} of ${state.products.length} / Point + trigger to select / Thumbstick to browse` : 'Search products to begin / Add a photo in the browser for previews');
-      preview.requireElementById<UIKit.Image>('preview').setProperties({ src: state.tryOnImage ?? state.photoDataUrl ?? placeholder });
-      text(preview, 'status', (state.tryOnMessage || (state.photoDataUrl ? 'Photo ready. Choose a product and select Photo preview.' : 'Add your photo in the browser before entering VR.')).slice(0, 180));
+      const selected = state.products.find(product => product.id === state.selectedId);
+      text(preview, 'preview-title', state.tryOnImage ? 'Your photo preview' : selected ? selected.title.slice(0, 48) : 'Choose a product');
+      preview.requireElementById<UIKit.Image>('preview').setProperties({ src: state.tryOnImage ?? state.photoDataUrl ?? selected?.imageUrl ?? placeholder });
+      text(preview, 'status', (state.tryOnMessage || (state.photoDataUrl ? 'Photo ready. Choose Photo preview.' : selected ? 'Selected. Photo preview opens setup; Buy prepares checkout.' : 'Choose a product to continue.')).slice(0, 180));
     };
     sync(store.getState());
     this.cleanupFuncs.push(store.subscribe(sync));

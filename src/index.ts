@@ -19,6 +19,7 @@ import projectOptions from 'virtual:iwsdk-project';
 import { ShoppingSystem } from './shopping.js';
 import { ModelPlacementSystem } from './model-placement.js';
 import { mountDesktop } from './desktop.js';
+import { enterImmersive } from './xr-session.js';
 import './style.css';
 
 World.create(
@@ -29,8 +30,8 @@ World.create(
   world.registerSystem(ModelPlacementSystem);
   const desktop = document.getElementById('desktop')!;
   mountDesktop(desktop, {
-    enterVR: () => { world.launchXR({ sessionMode: SessionMode.ImmersiveVR }); },
-    enterAR: () => { world.launchXR({ sessionMode: SessionMode.ImmersiveAR }); },
+    enterVR: () => enterImmersive(world, SessionMode.ImmersiveVR),
+    enterAR: () => enterImmersive(world, SessionMode.ImmersiveAR),
     exitVR: async () => { if (world.session) await world.session.end(); },
   });
   let immersive = false;
