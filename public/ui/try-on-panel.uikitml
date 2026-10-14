@@ -10,4 +10,4 @@
  .action { width: 44; height: 10; border-radius: 2; background-color: #c8f36b; color: #17221f; font-size: 3; align-items: center; justify-content: center; }
  .label { font-size: 2; color: #c8f36b; }
 </style>
-<div class="root"><div class="label">YOUR SELECTED BACKPACK</div><div id="preview-title" class="title">Choose a backpack</div><img id="preview" class="image" object-fit="cover" src="/ui/placeholder.svg"/><div id="status" class="status">Select a pack, then choose Try on or Buy.</div><div class="actions"><button id="try-selected" class="action">Try on</button><button id="buy-selected" class="action">Buy selected</button></div></div>
+<div class="root"><div class="label">YOUR SELECTED PRODUCT</div><div id="preview-title" class="title">Choose a product</div><img id="preview" class="image" object-fit="cover" src="/ui/placeholder.svg"/><div id="status" class="status">Select a product, then choose Preview or Buy.</div><div class="actions"><button id="try-selected" class="action">Photo preview</button><button id="buy-selected" class="action">Buy selected</button></div></div>

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { store } from '../src/store.js';
 import type { Product } from '../src/contracts.js';
 
-const products: Product[] = ['one', 'two'].map((id, index) => ({ id, title: `Camping backpack ${id}`, price: 5000 + index, currency: 'USD', description: 'Hiking pack', seller: 'Test', url: 'https://example.com/pack', imageUrl: 'https://example.com/pack.png' }));
+const products: Product[] = ['one', 'two'].map((id, index) => ({ id, title: `Camping backpack ${id}`, price: 5000 + index, currency: 'USD', description: 'Hiking pack', seller: 'Test', url: 'https://example.com/pack', imageUrl: 'https://example.com/pack.png', previewMode: 'backpack' }));
 const result = (query: string) => Response.json({ products, query, message: 'Live results' });
 
 test('a late search cannot replace a more recent search', async t => {

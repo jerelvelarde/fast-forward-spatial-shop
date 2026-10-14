@@ -1,5 +1,6 @@
 .env*
 .git/
+.vercel/
 .iwsdk/
 .agents/
 node_modules/
@@ -8,4 +9,6 @@ design/
 docs/
 tests/
 work/
+public/demo/*.raw.glb
+.meshy-*-task.json
 *.log

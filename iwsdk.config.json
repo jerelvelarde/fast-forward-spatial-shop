@@ -14,6 +14,7 @@
       "offer": "none",
       "features": {
         "handTracking": true,
+        "hitTest": true,
         "gazeTracking": false
       }
     },
@@ -41,7 +42,7 @@
       "grabbing": false,
       "physics": false,
       "sceneUnderstanding": false,
-      "environmentRaycast": false,
+      "environmentRaycast": true,
       "spatialUI": {
         "kit": "horizon"
       }

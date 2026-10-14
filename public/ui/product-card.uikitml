@@ -13,6 +13,6 @@
   <div id="seller" class="seller">LIVE SHOPIFY CATALOG</div>
   <img id="image" class="image" object-fit="cover" src="/ui/placeholder.svg" />
   <div id="title" class="title">Find your next adventure.</div>
-  <div id="price" class="price">Under $150</div>
+  <div id="price" class="price">Live price</div>
   <button id="select" class="action"><span id="select-label">Search to discover</span></button>
 </div>

@@ -15,12 +15,12 @@ export function checkoutUrl(value: unknown, product: Product): string {
 
 /** Creates a reviewable checkout, never submits payment or completes an order. */
 export async function prepareCheckout(body: Record<string, unknown>, fetcher: typeof fetch = fetch): Promise<CheckoutResult> {
-  if (typeof body.productId !== 'string' || body.productId.length > 1000 || typeof body.query !== 'string') throw new ApiError(400, 'Select a backpack before checkout.');
+  if (typeof body.productId !== 'string' || body.productId.length > 1000 || typeof body.query !== 'string') throw new ApiError(400, 'Select a product before checkout.');
   if (!Number.isSafeInteger(body.expectedPrice) || Number(body.expectedPrice) <= 0 || typeof body.requestId !== 'string' || !uuid.test(body.requestId)) throw new ApiError(400, 'Checkout needs the displayed price and a valid request ID.');
   if (body.checkoutId !== undefined && (typeof body.checkoutId !== 'string' || !body.checkoutId || body.checkoutId.length > 2000)) throw new ApiError(400, 'Invalid checkout session.');
   const catalog = await searchCatalog(body.query, fetcher);
   const product = catalog.products.find(item => item.id === body.productId);
-  if (!product) throw new ApiError(409, 'This backpack is no longer available within your budget. Search again before checkout.');
+  if (!product) throw new ApiError(409, 'This product is no longer available within your budget. Search again before checkout.');
   if (product.price !== body.expectedPrice) throw new ApiError(409, 'The price has changed. Search again and review the new price before checkout.');
   if (!product.sellerDomain) throw new ApiError(422, 'This listing has no verified checkout merchant. Open its store page to buy.');
   const name = body.checkoutId ? 'get_checkout' : 'create_checkout';
@@ -50,7 +50,7 @@ export async function prepareCheckout(body: Record<string, unknown>, fetcher: ty
   if (typeof checkout.id !== 'string' || !continueUrl || checkout.currency !== 'USD') throw new ApiError(502, 'The merchant did not return a valid USD checkout link. Open the merchant store to continue.');
   if (!['incomplete', 'requires_escalation', 'ready_for_complete'].includes(String(checkout.status))) throw new ApiError(409, 'This checkout is no longer open. Continue on the merchant store.');
   const lines = Array.isArray(checkout.line_items) ? checkout.line_items : [];
-  if (lines.length !== 1 || object(object(lines[0]).item).id !== product.id || object(lines[0]).quantity !== 1) throw new ApiError(502, 'The merchant checkout did not match the selected backpack. Open the store to review.');
+  if (lines.length !== 1 || object(object(lines[0]).item).id !== product.id || object(lines[0]).quantity !== 1) throw new ApiError(502, 'The merchant checkout did not match the selected product. Open the store to review.');
   if (object(object(lines[0]).item).price !== product.price) throw new ApiError(409, 'The checkout price has changed. Search again and review the new price before checkout.');
   const labels: Record<string, string> = { subtotal: 'Subtotal', fulfillment: 'Shipping', tax: 'Tax', total: 'Estimated total', discount: 'Discount' };
   const totals = (Array.isArray(checkout.totals) ? checkout.totals : []).map(object)
