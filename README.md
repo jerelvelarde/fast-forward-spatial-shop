@@ -35,7 +35,7 @@ Progress is driven by typed [AG-UI](https://github.com/ag-ui-protocol/ag-ui) run
 
 In **Webcam mode**, the camera fills an AR shopping stage. Three translucent product cards float over the live image with perspective; the selected backpack is in the center. Swipe gestures, pinch selection, card clicks and the on-camera arrows all control that same selection. These are camera-relative overlays, not room-mapped anchors or body-occluded 3D objects.
 
-![Webcam AR shopping with a selected camping backpack](design/verify/webcam-ar.jpg)
+![Webcam AR shopping with a selected camping backpack](docs/images/webcam-ar-shopping.png)
 
 The screenshot uses the supplied demo frame as a simulated camera background. To preview this without granting camera access, open `/tests/browser/ar-preview.html` on the dev server and choose **Preview AR with demo frame**. That development-only preview uses live catalog results and disables paid generation.
 
