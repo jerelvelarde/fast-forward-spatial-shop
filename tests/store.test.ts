@@ -56,3 +56,23 @@ test('missing configuration never sends a photo to the generation endpoint', asy
   assert.equal(store.getState().tryOnStatus, 'error');
   assert.match(store.getState().tryOnMessage, /AI_GATEWAY_API_KEY/);
 });
+
+
+test('explicit cancellation discards a late generated image', async t => {
+  let finish!: (r: Response) => void;
+  let signal: AbortSignal | undefined;
+  t.mock.method(globalThis, 'fetch', (url: string, init?: RequestInit) => {
+    if (url === '/api/config') return Promise.resolve(Response.json({ tryOnEnabled: true }));
+    if (url === '/api/search') return Promise.resolve(result('camping backpack'));
+    signal = init!.signal!;
+    return new Promise<Response>(resolve => { finish = resolve; });
+  });
+  await store.configure(); await store.search();
+  store.setPhoto('data:image/png;base64,cGhvdG8=');
+  const generation = store.generateTryOn();
+  store.cancelTryOn();
+  assert.equal(signal?.aborted, true);
+  finish(Response.json({ imageDataUrl: 'data:image/png;base64,b2xk' })); await generation;
+  assert.equal(store.getState().tryOnStatus, 'idle');
+  assert.equal(store.getState().tryOnImage, null);
+});

@@ -5,12 +5,14 @@
 - [x] Official Meta IWSDK starter pinned to 1.0.1.
 - [x] Camping-backpack flow and original storyboard documented.
 - [x] Live Shopify Shop MCP search, USD availability and strict price filtering.
-- [x] Desktop cards, selection, keyboard navigation and swipeable rail.
+- [x] Prompt-first UI, responsive product cards, selection and keyboard navigation.
 - [x] Browser voice capture with visible transcript and typed fallback.
 - [x] Three spatial cards, ray selection, previous/next and right-thumbstick browsing.
 - [x] Shared state with stale search and generation protection.
 - [x] Photo upload and supplied video-frame option.
 - [x] Laptop webcam preview, capture/retake, compression, and camera lifecycle cleanup.
+- [x] Voice/typed picture → generate → show tools, countdown, cancellation and AG-UI progress events.
+- [x] Camera-relative AR product cards over the webcam, with shared gesture/click selection and clean photo capture.
 - [x] Before/after photo comparison with the original preserved during generation.
 - [x] Local webcam hand tracking: open-palm swipe to browse and held pinch to select.
 - [x] Server-side AI Gateway image integration and explicit missing-configuration state.

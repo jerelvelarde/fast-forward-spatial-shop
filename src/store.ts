@@ -89,6 +89,7 @@ export const store = {
   setPhoto(photoDataUrl: string | null) {
     update({ ...clearGeneration(), photoDataUrl });
   },
+  cancelTryOn() { if (state.tryOnStatus === 'generating') update(clearGeneration()); },
   setAccessToken(token: string) { demoAccessToken = token; },
   async generateTryOn(accessToken?: string) {
     if (accessToken !== undefined) demoAccessToken = accessToken;

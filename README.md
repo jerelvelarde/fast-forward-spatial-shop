@@ -2,9 +2,11 @@
 
 A voice-driven shopping agent that lets people discover backpacks, swipe through products in VR, and preview a selected backpack on a human. An entry concept for the Fast Forward Virtual Hackathon.
 
-**Status:** Working first build from Meta's IWSDK starter. Live Shopify search, desktop browsing, spatial cards, controller selection, laptop webcam capture, and AI try-on are integrated. Live generation has been tested with a selected camping backpack. Physical webcam/Quest testing and deployment remain.
+**Status:** Prompt-first interface with voice/typed camera tools and AG-UI progress. Working build from Meta's IWSDK starter. Live Shopify search, desktop browsing, spatial cards, controller selection, laptop webcam capture, and AI try-on are integrated. Live generation has been tested with a selected camping backpack. Physical webcam/Quest testing and deployment remain.
 
-![Working desktop prototype with live Shopify backpack results](design/verify/final-desktop.png)
+![Prompt-first shopping interface](design/verify/prompt-first-home.jpg)
+
+![Shopping cards revealed after a live Shopify search](design/verify/prompt-first-results.jpg)
 
 [Verification notes](design/VERIFICATION.md) distinguish tested behavior from the remaining headset and AI checks.
 
@@ -21,15 +23,30 @@ Open http://localhost:5173. Search, select a pack, choose **Try it on**, then **
 
 On a laptop, choose **Use webcam**, allow camera access, frame your shoulders and torso, then **Capture photo**. You can retake it before generating. A front view shows straps; a rear or three-quarter view shows more of the bag. The preview stays local, and only the captured still is sent when you choose **Generate my try-on**. Capture, Stop camera, closing the dialog, hiding the tab, or entering VR turns the camera off. Webcam capture requires HTTPS or localhost; plain HTTP over a LAN will not work.
 
-### Webcam shopping and before/after
+### Voice and typed tool commands
+
+The opening screen contains only a voice/typing prompt. Ask **“Find a camping backpack under 150 USD”** to reveal live product cards, selection details, Webcam mode and Enter VR.
+
+After selecting a pack, type or say **“Take a picture and try it on.”** Enter your demo access token first in **Try it on** if generation is enabled. The app opens the camera, shows a three-second countdown, captures a still, generates the selected backpack preview and displays Before/After. **“Take a picture”** only captures; **“Try it on”** uses the current photo or captures one if missing. Use **Cancel action** or say/type **“Cancel”** to stop the sequence. Cancelling an already submitted generation discards its result; it may not stop provider billing.
+
+Progress is driven by typed [AG-UI](https://github.com/ag-ui-protocol/ag-ui) run/tool events (`take_picture`, `generate_try_on`, `show_try_on`). The current router recognizes these explicit commands locally. There is no LLM planner, SSE agent endpoint or CopilotKit UI dependency. We retain custom shopping cards and IWSDK rendering; AG-UI provides the event contract for later agent-backend integration. Event payloads exclude photos and credentials.
+
+### Webcam AR shopping and before/after
+
+In **Webcam mode**, the camera fills an AR shopping stage. Three translucent product cards float over the live image with perspective; the selected backpack is in the center. Swipe gestures, pinch selection, card clicks and the on-camera arrows all control that same selection. These are camera-relative overlays, not room-mapped anchors or body-occluded 3D objects.
+
+![Webcam AR shopping with a selected camping backpack](design/verify/webcam-ar.jpg)
+
+The screenshot uses the supplied demo frame as a simulated camera background. To preview this without granting camera access, open `/tests/browser/ar-preview.html` on the dev server and choose **Preview AR with demo frame**. That development-only preview uses live catalog results and disables paid generation.
+
 
 After searching, choose **Webcam mode** in the header (or **Use webcam** in the try-on dialog). Hand controls load on your device:
 
 1. Show one open hand and swipe left to see the next backpack, or right for the previous one. Directions follow the mirrored live preview. Pause briefly between swipes.
 2. Hold your thumb and index finger together for half a second to select the displayed backpack. This pauses gestures while keeping the camera on for framing. **Resume hand controls** lets you browse again.
-3. Capture your photo, then generate. **Before** preserves the original still; **After** shows the AI result beside it. Changing the backpack clears the old After image. Captured photos are unmirrored even though the live preview acts like a mirror.
+3. Capture your photo, then generate. Capture saves raw camera pixels, without the floating shopping cards. **Before** preserves the original still; **After** shows the AI result beside it. Changing the backpack clears the old After image. Captured photos are unmirrored even though the live preview acts like a mirror.
 
-Arrow buttons and **Select this backpack** are always available. Gesture recognition runs in a local Web Worker; camera frames are never sent to a gesture service. It requires a browser with Worker, ImageBitmap and OffscreenCanvas support. This is live gesture input plus still-image try-on, not continuous AI video. Gesture timing is covered by automated tests; physical webcam accuracy still needs testing in your lighting and browser.
+Arrow buttons and **Select this backpack** are available while browsing; an active tool sequence temporarily locks selection. Gesture recognition runs in a local Web Worker; camera frames are never sent to a gesture service. It requires a browser with Worker, ImageBitmap and OffscreenCanvas support. This is live gesture input plus still-image try-on, not continuous AI video. Gesture timing is covered by automated tests; physical webcam accuracy still needs testing in your lighting and browser.
 
 For the managed Meta desktop emulator:
 
@@ -58,7 +75,7 @@ npm run build
 
 The build retains desktop IWER emulation from the starter. Real webcam capture, headset readability, hand/controller comfort, and microphone behavior still need hardware testing. The integrated agent currently uses a bounded tool workflow with explicit budget parsing, not multi-turn LLM conversation. It uses Shop MCP for discovery; no checkout/UCP purchase flow is implemented.
 
-For the development-only browser regression harness, open `/tests/browser/webcam.html` on the dev server and choose **Run webcam regression**. It tests before/after state, camera capture/cleanup and actual MediaPipe worker inference with a synthetic stream and mocked API responses. It does not open your camera or make paid generation calls, and is excluded from the production build.
+For the development-only browser regression harness, open `/tests/browser/webcam.html` on the dev server and choose **Run webcam regression**. It tests prompt-first UI, before/after state, the combined command, countdown cancellation, camera capture/cleanup and actual MediaPipe worker inference with a synthetic stream and mocked API responses. It does not open your camera or make paid generation calls, and is excluded from the production build.
 
 ## The experience
 
