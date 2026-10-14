@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.iwsdk/
+.vercel/
+.env
+.env.*
+!.env.example
+public/mediapipe/wasm/
+*.log
+public/test-media/

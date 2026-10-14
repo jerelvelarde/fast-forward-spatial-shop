@@ -6,6 +6,8 @@ A voice-driven shopping agent that lets people discover backpacks, swipe through
 
 ![Working desktop prototype with live Shopify backpack results](design/verify/final-desktop.png)
 
+> **New: camera-first try-on.** [`camera-try-on/`](camera-try-on/README.md) is a separate IWSDK + Vite app that opens on a full-screen camera and fits sunglasses, caps and backpacks onto you live with face and body tracking.
+
 [Verification notes](design/VERIFICATION.md) distinguish tested behavior from the remaining headset and AI checks.
 
 ## Run locally

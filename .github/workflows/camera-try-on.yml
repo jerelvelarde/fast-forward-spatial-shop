@@ -1,0 +1,38 @@
+name: Camera try-on
+
+on:
+  push:
+    branches: [main, camera-try-on]
+    paths: ['camera-try-on/**', '.github/workflows/camera-try-on.yml']
+  pull_request:
+    paths: ['camera-try-on/**', '.github/workflows/camera-try-on.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: camera-try-on-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: camera-try-on
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: camera-try-on/.nvmrc
+          cache: npm
+          cache-dependency-path: camera-try-on/package-lock.json
+
+      - run: npm ci --no-audit --no-fund
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - run: npm run build
