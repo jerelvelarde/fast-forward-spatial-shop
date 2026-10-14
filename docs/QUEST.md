@@ -12,12 +12,12 @@ Open [https://trailxr.vercel.app/](https://trailxr.vercel.app/) in Quest Browser
 
 ## Generate a new selected item
 
-Search for a jacket, tent, another backpack, or other item and select its Shopify card. Enter the private demo token on the browser page, then choose **Generate 3D product**. The request sends the exact selected variant's available Shopify image URLs to Meshy 6 Lite. Generation may take several minutes. When it is ready, enter or return to Quest AR and choose **Place in room**. A new backpack is placed approximately on Rich's saved body; other products appear as standalone 3D objects. One product image can be enough for the API, but quality improves with more angles. Each new item costs Meshy API credits.
+Search for a jacket, tent, another backpack, or other item and select its Shopify card. Choose **Generate 3D product**; no demo token is needed. The server uses its private Meshy key and sends the exact selected variant's available Shopify image URLs to Meshy 6 Lite. Generation may take several minutes. When it is ready, enter or return to Quest AR and choose **Place in room**. A new backpack is placed approximately on Rich's saved body; other products appear as standalone 3D objects. One product image can be enough for the API, but quality improves with more angles. Each new item costs Meshy API credits.
 
 ## Other controls
 
 - **Speak / stop** records a shopping request or command. Press again to finish. You can always type a search on the browser page.
-- **Photo preview** uses a photo uploaded or captured on the browser page and the private demo token. Quest passthrough does not expose camera pixels to this app; the webcam and gesture mode runs on a laptop.
+- **Photo preview** loads Rich's demo photo automatically when opened. You can replace it with a photo uploaded or captured on the browser page; generation still needs the private demo token. Quest passthrough does not expose camera pixels to this app; the webcam and gesture mode runs on a laptop.
 - **Buy selected** rechecks the exact Shopify variant, prepares quantity one, exits immersive mode, and opens a review with a merchant checkout link. Payment is handled by the merchant. Do not complete payment during a demo unless you intend to purchase.
 - **Enter VR** uses the virtual showroom; **Enter Quest AR** uses room passthrough. The AR button only appears if Quest Browser reports `immersive-ar` support.
 

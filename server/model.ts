@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { ApiError, searchCatalog } from './catalog.js';
 import { PREPARED_VARIANT_ID } from '../src/contracts.js';
 import type { Product } from '../src/contracts.js';
@@ -7,6 +7,12 @@ const MESHY_URL = 'https://api.meshy.ai/openapi/v1/multi-image-to-3d';
 export { PREPARED_VARIANT_ID };
 export const PREPARED_MODEL_URL = '/demo/rich-with-backpack.glb';
 const taskIds = new Map<string, string>();
+const pendingStarts = new Map<string, Promise<string>>();
+const taskStarts = new Map<string, number[]>();
+const START_WINDOW_MS = 60 * 60 * 1000;
+const MAX_STARTS_PER_CLIENT = 6;
+const MAX_STARTS_PER_INSTANCE = 30;
+const TICKET_SECONDS = 48 * 60 * 60;
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
 export function modelEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -14,12 +20,46 @@ export function modelEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return true;
 }
 
-export function authorizeModel(token: unknown, env: NodeJS.ProcessEnv = process.env): string {
-  if (!env.MESHY_API_KEY?.trim() || (env.TRY_ON_ACCESS_TOKEN?.length ?? 0) < 16) throw new ApiError(503, 'Live 3D generation needs MESHY_API_KEY and TRY_ON_ACCESS_TOKEN on the server.');
-  const provided = Buffer.from(typeof token === 'string' ? token : '');
-  const expected = Buffer.from(env.TRY_ON_ACCESS_TOKEN!);
-  if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) throw new ApiError(401, 'Enter the private demo access token to generate a 3D model.');
-  return env.MESHY_API_KEY!;
+export function modelApiKey(env: NodeJS.ProcessEnv = process.env): string {
+  if (!env.MESHY_API_KEY?.trim()) throw new ApiError(503, 'Live 3D generation needs MESHY_API_KEY on the server.');
+  return env.MESHY_API_KEY;
+}
+
+function taskTicket(taskId: string, key: string, expires = Math.floor(Date.now() / 1000) + TICKET_SECONDS): string {
+  const signature = createHmac('sha256', key).update(`${taskId}.${expires}`).digest('base64url');
+  return `${expires}.${signature}`;
+}
+
+function verifyTaskTicket(taskId: unknown, ticket: unknown, key: string): asserts taskId is string {
+  if (typeof taskId !== 'string' || !/^[A-Za-z0-9-]{8,100}$/.test(taskId)) throw new ApiError(400, 'Invalid model task ID.');
+  if (typeof ticket !== 'string' || !/^\d{10}\.[A-Za-z0-9_-]{43}$/.test(ticket)) throw new ApiError(401, 'This 3D task is not available in this browser. Generate the product again.');
+  const [expiry] = ticket.split('.');
+  const seconds = Number(expiry);
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isSafeInteger(seconds) || seconds < now || seconds > now + TICKET_SECONDS) throw new ApiError(401, 'This 3D task has expired. Generate the product again.');
+  const expected = Buffer.from(taskTicket(taskId, key, seconds));
+  const provided = Buffer.from(ticket);
+  if (expected.length !== provided.length || !timingSafeEqual(provided, expected)) throw new ApiError(401, 'This 3D task is not available in this browser. Generate the product again.');
+}
+
+function reserveStart(client: string): () => void {
+  const now = Date.now();
+  for (const [key, times] of taskStarts) {
+    const recent = times.filter(time => now - time < START_WINDOW_MS);
+    if (recent.length) taskStarts.set(key, recent); else taskStarts.delete(key);
+  }
+  const clientKey = `client:${client}`;
+  const recent = taskStarts.get(clientKey) ?? [];
+  const global = taskStarts.get('global') ?? [];
+  if (recent.length >= MAX_STARTS_PER_CLIENT || global.length >= MAX_STARTS_PER_INSTANCE) throw new ApiError(429, '3D demo generation is busy. Try again later or use the prepared backpack preview.');
+  recent.push(now); global.push(now);
+  taskStarts.set(clientKey, recent); taskStarts.set('global', global);
+  return () => {
+    for (const key of [clientKey, 'global']) {
+      const times = taskStarts.get(key);
+      if (times) taskStarts.set(key, times.filter(time => time !== now));
+    }
+  };
 }
 
 function shopifyImage(url: string): boolean {
@@ -81,29 +121,41 @@ async function meshy(path: string, key: string, options?: RequestInit, fetcher: 
   return data;
 }
 
-export async function startBackpackModel(body: Record<string, unknown>, fetcher: typeof fetch = fetch): Promise<{ status: 'pending'; taskId: string; productId: string } | { status: 'ready'; modelUrl: string; productId: string }> {
+export async function startBackpackModel(body: Record<string, unknown>, fetcher: typeof fetch = fetch, client = 'local'): Promise<{ status: 'pending'; taskId: string; ticket: string; productId: string } | { status: 'ready'; modelUrl: string; productId: string }> {
   if (typeof body.productId !== 'string' || body.productId.length > 300 || typeof body.query !== 'string') throw new ApiError(400, 'Select a product from your current search first.');
   const catalog = await searchCatalog(body.query, fetcher);
   const product = catalog.products.find(item => item.id === body.productId);
   if (!product) throw new ApiError(409, 'This product is no longer in the Shopify results. Search again.');
   if (product.id === PREPARED_VARIANT_ID) return { status: 'ready', modelUrl: PREPARED_MODEL_URL, productId: product.id };
-  const key = authorizeModel(body.accessToken);
+  const key = modelApiKey();
   const existing = taskIds.get(product.id);
-  if (existing) return { status: 'pending', taskId: existing, productId: product.id };
-  const images = await productGalleryImages(product, fetcher);
-  if (!images.length) throw new ApiError(422, 'This product has no supported JPEG or PNG Shopify photo for Meshy. Choose another.');
-  const result = await meshy('', key, {
-    method: 'POST',
-    body: JSON.stringify({ image_urls: images, ai_model: 'meshy-6-lite', geometry_resolution: 'standard', should_texture: true, texture_resolution: '2k', should_remesh: true, topology: 'triangle', target_polycount: 30000, target_formats: ['glb'], auto_size: true }),
-  }, fetcher);
-  if (typeof result.result !== 'string' || result.result.length < 8) throw new ApiError(502, 'Meshy did not return a model task ID.');
-  taskIds.set(product.id, result.result);
-  return { status: 'pending', taskId: result.result, productId: product.id };
+  if (existing) return { status: 'pending', taskId: existing, ticket: taskTicket(existing, key), productId: product.id };
+  let pending = pendingStarts.get(product.id);
+  if (!pending) {
+    pending = (async () => {
+      const images = await productGalleryImages(product, fetcher);
+      if (!images.length) throw new ApiError(422, 'This product has no supported JPEG or PNG Shopify photo for Meshy. Choose another.');
+      const release = reserveStart(client);
+      try {
+        const result = await meshy('', key, {
+          method: 'POST',
+          body: JSON.stringify({ image_urls: images, ai_model: 'meshy-6-lite', geometry_resolution: 'standard', should_texture: true, texture_resolution: '2k', should_remesh: true, topology: 'triangle', target_polycount: 30000, target_formats: ['glb'], auto_size: true }),
+        }, fetcher);
+        if (typeof result.result !== 'string' || result.result.length < 8) throw new ApiError(502, 'Meshy did not return a model task ID.');
+        taskIds.set(product.id, result.result);
+        return result.result;
+      } catch (error) { release(); throw error; }
+    })();
+    pendingStarts.set(product.id, pending);
+    void pending.finally(() => pendingStarts.delete(product.id)).catch(() => {});
+  }
+  const taskId = await pending;
+  return { status: 'pending', taskId, ticket: taskTicket(taskId, key), productId: product.id };
 }
 
 export async function getBackpackModel(body: Record<string, unknown>, fetcher: typeof fetch = fetch): Promise<{ status: 'pending' | 'ready' | 'failed'; taskId: string; progress: number; modelUrl?: string; message?: string }> {
-  const key = authorizeModel(body.accessToken);
-  if (typeof body.taskId !== 'string' || !/^[A-Za-z0-9-]{8,100}$/.test(body.taskId)) throw new ApiError(400, 'Invalid model task ID.');
+  const key = modelApiKey();
+  verifyTaskTicket(body.taskId, body.ticket, key);
   const task = await meshy(`/${encodeURIComponent(body.taskId)}`, key, undefined, fetcher);
   const status = String(task.status);
   const progress = Number.isFinite(task.progress) ? Math.max(0, Math.min(100, Number(task.progress))) : 0;

@@ -67,6 +67,6 @@ Quest AR uses `SessionMode.ImmersiveAR`, SDK passthrough background handling and
 
 ## Deployment
 
-Vercel serves `dist` and rewrites `/api/*` to the Node fetch function. Environment secrets never use a `VITE_` prefix. The optional image-model override stays on the server. A private token protects paid generation; it is a hackathon demo guard, not a production multi-user identity system. `npm run preview` is static only.
+Vercel serves `dist` and rewrites `/api/*` to the Node fetch function. Environment secrets never use a `VITE_` prefix. The optional image-model override stays on the server. Photo try-on requires a private demo token. 3D generation uses the server-side Meshy key without a browser token, checks the selected Shopify variant, and applies best-effort per-client and per-instance start limits. Polling and asset downloads use a signed task ticket. A durable rate limiter or Vercel Firewall rule is needed for a long-lived public service. `npm run preview` is static only.
 
 See [verification evidence](../design/VERIFICATION.md) and the README for setup and known gaps.

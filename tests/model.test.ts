@@ -1,21 +1,23 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { authorizeModel, downloadModelAsset, getBackpackModel, modelEnabled, PREPARED_MODEL_URL, PREPARED_VARIANT_ID, startBackpackModel } from '../server/model.js';
+import { downloadModelAsset, getBackpackModel, modelApiKey, modelEnabled, PREPARED_MODEL_URL, PREPARED_VARIANT_ID, startBackpackModel } from '../server/model.js';
 
-test('Meshy generation requires both server configuration and the exact private token', () => {
+test('Meshy generation uses only the server-side key', () => {
   assert.equal(modelEnabled({}), true);
-  assert.throws(() => authorizeModel('anything', {}), /needs MESHY_API_KEY/);
-  const env = { MESHY_API_KEY: 'test-key', TRY_ON_ACCESS_TOKEN: 'private-demo-token-1234' };
+  assert.throws(() => modelApiKey({}), /needs MESHY_API_KEY/);
+  const env = { MESHY_API_KEY: 'test-key' };
   assert.equal(modelEnabled(env), true);
-  assert.throws(() => authorizeModel('private-demo-token-xxxx', env), /private demo access token/);
-  assert.equal(authorizeModel(env.TRY_ON_ACCESS_TOKEN, env), 'test-key');
+  assert.equal(modelApiKey(env), 'test-key');
 });
 
 test('finished Meshy GLB streams through the same-origin API for browsers without Meshy CORS', async () => {
   const previousKey = process.env.MESHY_API_KEY;
-  const previousToken = process.env.TRY_ON_ACCESS_TOKEN;
   process.env.MESHY_API_KEY = 'test-key';
-  process.env.TRY_ON_ACCESS_TOKEN = 'private-demo-token-1234';
+  const productId = 'gid://shopify/ProductVariant/asset-test-unique';
+  const startFetcher: typeof fetch = async input => {
+    if (String(input) === 'https://mcp.shop.com/') return Response.json({ result: { structuredContent: { products: [{ title: 'Rain jacket', variants: [{ id: productId, title: 'Blue', url: 'https://example.com/jacket?variant=1', price: { amount: 5000, currency: 'USD' }, availability: { available: true }, media: [{ type: 'image', url: 'https://cdn.shopify.com/jacket.jpg' }] }] }] } } });
+    return Response.json({ result: 'test-task-1234' });
+  };
   let calls = 0;
   const fetcher: typeof fetch = async input => {
     calls++;
@@ -27,22 +29,24 @@ test('finished Meshy GLB streams through the same-origin API for browsers withou
     return new Response(new Uint8Array([0x67, 0x6c, 0x54, 0x46, 1, 2, 3, 4]), { headers: { 'Content-Length': '8' } });
   };
   try {
-    const response = await downloadModelAsset({ taskId: 'test-task-1234', accessToken: process.env.TRY_ON_ACCESS_TOKEN }, fetcher);
+    const started = await startBackpackModel({ productId, query: 'rain jacket under $100' }, startFetcher, 'asset-test');
+    assert.equal(started.status, 'pending');
+    if (started.status !== 'pending') throw new Error('Expected a Meshy task');
+    await assert.rejects(downloadModelAsset({ taskId: started.taskId, ticket: 'invalid' }, fetcher), /not available in this browser/);
+    assert.equal(calls, 0);
+    const response = await downloadModelAsset({ taskId: started.taskId, ticket: started.ticket }, fetcher);
     assert.equal(response.headers.get('content-type'), 'model/gltf-binary');
     assert.equal(response.headers.get('cache-control'), 'private, no-store');
     assert.equal(Buffer.from(await response.arrayBuffer()).toString('ascii', 0, 4), 'glTF');
     assert.equal(calls, 2);
   } finally {
     if (previousKey === undefined) delete process.env.MESHY_API_KEY; else process.env.MESHY_API_KEY = previousKey;
-    if (previousToken === undefined) delete process.env.TRY_ON_ACCESS_TOKEN; else process.env.TRY_ON_ACCESS_TOKEN = previousToken;
   }
 });
 
 test('the prepared Shopify variant returns its saved Quest model without a new Meshy job', async () => {
   const previousKey = process.env.MESHY_API_KEY;
-  const previousToken = process.env.TRY_ON_ACCESS_TOKEN;
   process.env.MESHY_API_KEY = 'test-key';
-  process.env.TRY_ON_ACCESS_TOKEN = 'private-demo-token-1234';
   let calls = 0;
   const fetcher: typeof fetch = async input => {
     calls++;
@@ -50,20 +54,17 @@ test('the prepared Shopify variant returns its saved Quest model without a new M
     return Response.json({ result: { structuredContent: { products: [{ title: '30L Backpack Military Style Outdoor Waterproof Rucksack', variants: [{ id: PREPARED_VARIANT_ID, title: 'Black', url: 'https://example.com/bag?variant=36808158601', price: { amount: 5000, currency: 'USD' }, availability: { available: true }, media: [{ type: 'image', url: 'https://cdn.shopify.com/bag.jpg' }] }] }] } } });
   };
   try {
-    const result = await startBackpackModel({ productId: PREPARED_VARIANT_ID, query: 'camping backpack under $100', accessToken: 'private-demo-token-1234' }, fetcher);
+    const result = await startBackpackModel({ productId: PREPARED_VARIANT_ID, query: 'camping backpack under $100' }, fetcher);
     assert.deepEqual(result, { status: 'ready', modelUrl: PREPARED_MODEL_URL, productId: PREPARED_VARIANT_ID });
     assert.equal(calls, 1);
   } finally {
     if (previousKey === undefined) delete process.env.MESHY_API_KEY; else process.env.MESHY_API_KEY = previousKey;
-    if (previousToken === undefined) delete process.env.TRY_ON_ACCESS_TOKEN; else process.env.TRY_ON_ACCESS_TOKEN = previousToken;
   }
 });
 
 test('selected Shopify variant sends only its verified JPEG and PNG images to Meshy', async () => {
   const previousKey = process.env.MESHY_API_KEY;
-  const previousToken = process.env.TRY_ON_ACCESS_TOKEN;
   process.env.MESHY_API_KEY = 'test-key';
-  process.env.TRY_ON_ACCESS_TOKEN = 'private-demo-token-1234';
   const productId = 'gid://shopify/ProductVariant/model-test-unique';
   const catalogProductId = 'gid://shopify/p/model-test';
   let generated = 0;
@@ -93,17 +94,64 @@ test('selected Shopify variant sends only its verified JPEG and PNG images to Me
     return Response.json({ result: 'test-task-1234' });
   };
   try {
-    await assert.rejects(startBackpackModel({ action: 'start', productId: 'wrong', query: 'camping backpack under $100', accessToken: 'private-demo-token-1234' }, fetcher), /no longer in the Shopify results/);
+    await assert.rejects(startBackpackModel({ action: 'start', productId: 'wrong', query: 'camping backpack under $100' }, fetcher), /no longer in the Shopify results/);
     assert.equal(generated, 0);
-    const started = await startBackpackModel({ action: 'start', productId, query: 'camping backpack under $100', accessToken: 'private-demo-token-1234' }, fetcher);
+    const started = await startBackpackModel({ action: 'start', productId, query: 'camping backpack under $100' }, fetcher, 'gallery-test');
     assert.equal(started.status, 'pending');
     if (started.status !== 'pending') throw new Error('Expected a Meshy task');
     assert.equal(started.taskId, 'test-task-1234');
     assert.equal(generated, 1);
-    const ready = await getBackpackModel({ taskId: started.taskId, accessToken: 'private-demo-token-1234' }, async () => Response.json({ status: 'SUCCEEDED', progress: 100, model_urls: { glb: 'https://assets.meshy.ai/model.glb?Expires=123' } }));
+    const ready = await getBackpackModel({ taskId: started.taskId, ticket: started.ticket }, async () => Response.json({ status: 'SUCCEEDED', progress: 100, model_urls: { glb: 'https://assets.meshy.ai/model.glb?Expires=123' } }));
     assert.equal(ready.modelUrl, 'https://assets.meshy.ai/model.glb?Expires=123');
   } finally {
     if (previousKey === undefined) delete process.env.MESHY_API_KEY; else process.env.MESHY_API_KEY = previousKey;
-    if (previousToken === undefined) delete process.env.TRY_ON_ACCESS_TOKEN; else process.env.TRY_ON_ACCESS_TOKEN = previousToken;
+  }
+});
+
+test('concurrent requests reuse one paid Meshy task for the selected product', async () => {
+  const previousKey = process.env.MESHY_API_KEY;
+  process.env.MESHY_API_KEY = 'test-key';
+  const productId = 'gid://shopify/ProductVariant/concurrent-test';
+  let paidStarts = 0;
+  const fetcher: typeof fetch = async input => {
+    if (String(input) === 'https://mcp.shop.com/') return Response.json({ result: { structuredContent: { products: [{ title: 'Camp tent', variants: [{ id: productId, title: 'Green', url: 'https://example.com/tent?variant=1', price: { amount: 8000, currency: 'USD' }, availability: { available: true }, media: [{ type: 'image', url: 'https://cdn.shopify.com/tent.jpg' }] }] }] } } });
+    paidStarts++;
+    return Response.json({ result: 'concurrent-task-1234' });
+  };
+  try {
+    const body = { productId, query: 'camp tent under $100' };
+    const [first, second] = await Promise.all([startBackpackModel(body, fetcher, 'concurrent-test'), startBackpackModel(body, fetcher, 'concurrent-test')]);
+    assert.equal(first.status, 'pending');
+    assert.deepEqual(second, first);
+    assert.equal(paidStarts, 1);
+  } finally {
+    if (previousKey === undefined) delete process.env.MESHY_API_KEY; else process.env.MESHY_API_KEY = previousKey;
+  }
+});
+
+test('public model starts are limited per client while existing tasks remain reusable', async () => {
+  const previousKey = process.env.MESHY_API_KEY;
+  process.env.MESHY_API_KEY = 'test-key';
+  let paidStarts = 0;
+  try {
+    let first: { productId: string; query: string } | undefined;
+    for (let index = 0; index < 7; index++) {
+      const body = { productId: `gid://shopify/ProductVariant/rate-test-${index}`, query: 'camp tent under $100' };
+      first ??= body;
+      const fetcher: typeof fetch = async input => {
+        if (String(input) === 'https://mcp.shop.com/') return Response.json({ result: { structuredContent: { products: [{ title: 'Camp tent', variants: [{ id: body.productId, title: 'Green', url: `https://example.com/tent?variant=${index}`, price: { amount: 8000, currency: 'USD' }, availability: { available: true }, media: [{ type: 'image', url: 'https://cdn.shopify.com/tent.jpg' }] }] }] } } });
+        paidStarts++;
+        return Response.json({ result: `rate-test-task-${index}` });
+      };
+      if (index < 6) assert.equal((await startBackpackModel(body, fetcher, 'rate-limit-test')).status, 'pending');
+      else await assert.rejects(startBackpackModel(body, fetcher, 'rate-limit-test'), /generation is busy/);
+    }
+    assert.equal(paidStarts, 6);
+    assert.ok(first);
+    const reused = await startBackpackModel(first, async () => Response.json({ result: { structuredContent: { products: [{ title: 'Camp tent', variants: [{ id: first!.productId, title: 'Green', url: 'https://example.com/tent?variant=0', price: { amount: 8000, currency: 'USD' }, availability: { available: true }, media: [{ type: 'image', url: 'https://cdn.shopify.com/tent.jpg' }] }] }] } } }), 'rate-limit-test');
+    assert.equal(reused.status, 'pending');
+    assert.equal(paidStarts, 6);
+  } finally {
+    if (previousKey === undefined) delete process.env.MESHY_API_KEY; else process.env.MESHY_API_KEY = previousKey;
   }
 });
