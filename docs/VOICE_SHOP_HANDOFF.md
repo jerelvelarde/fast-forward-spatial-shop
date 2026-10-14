@@ -41,6 +41,19 @@ The search response is:
 4. Deploy the project. Open `/voice-shop-test.html` on the HTTPS Vercel URL; type the demo request first, then test the microphone. Local Vite alone does not run root `api/` functions; use `vercel dev` or a deployed preview for the complete flow.
 5. The VR scene should call `/api/search` with the confirmed transcript or typed text and render `products`. It should show `warnings` and a clear empty or error state.
 
+## Test this branch on a laptop before the starter merges
+
+The voice branch can run its test page without a frontend scaffold. From the repository root, use Node 23 or newer:
+
+```sh
+npm_config_cache=../npm-cache npm install --no-save --no-package-lock ai @ai-sdk/gateway
+node --experimental-strip-types --env-file-if-exists=.env.local scripts/dev-voice-shop.mjs
+```
+
+Open `http://127.0.0.1:4317/voice-shop-test.html` and click **Search live**. This tests the real Shop adapter. To test speech, create a local `.env.local` containing `AI_GATEWAY_API_KEY=...`, restart the server, and click **Start talking**. `.env.local` is ignored by Git. Grant microphone access to this localhost page when your browser asks. The browser must support `MediaRecorder`; if it does not, typed search still works.
+
+The local server is only a test harness. After the IWSDK/Vite starter merges, use the deployed Vercel `/api` routes for the headset test.
+
 ## Verification already completed
 
 - Called Shop MCP live with the camping backpack request.
