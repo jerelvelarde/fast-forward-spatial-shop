@@ -92,8 +92,16 @@ World.create(document.querySelector<HTMLDivElement>('#scene-container')!, projec
       const initialYaw = body()!.rotation.y;
       click('shopping-controls', 'rotate');
       check(Math.abs(body()!.rotation.y - initialYaw - Math.PI / 4) < .001, 'large rotate action turns the demo body');
+      const callsBeforeDemo = calls.length;
+      click('shopping-controls', 'demo-model');
+      await waitFor(() => Boolean(model()?.visible), 'demo button did not place Rich with the backpack');
+      check(store.getState().modelStatus === 'ready' && store.getState().selectedId === PREPARED_VARIANT_ID, 'demo button selects the saved Shopify backpack');
+      check(calls.length === callsBeforeDemo, 'demo button uses the saved GLB without a paid API call');
+      check(Math.abs(height(model()!) - 1.72) < .01 && !body()!.visible, 'demo backpack is visible at human scale');
+      click('shopping-controls', 'back');
+      const searchesBeforeVoice = calls.filter(url => url === '/api/search').length;
       click('shopping-controls', 'voice');
-      await waitFor(() => store.getState().status === 'ready', 'voice search did not finish');
+      await waitFor(() => calls.filter(url => url === '/api/search').length > searchesBeforeVoice && store.getState().status === 'ready', 'voice search did not finish');
       check(store.getState().query.includes('camping backpack'), 'spatial voice action runs the shared search flow');
       check(panel('card-center').visible, 'live result state reveals spatial cards');
       const modelCalls = calls.filter(url => url === '/api/model').length;
