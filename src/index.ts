@@ -20,12 +20,14 @@ import { ShoppingSystem } from './shopping.js';
 import { ModelPlacementSystem } from './model-placement.js';
 import { mountDesktop } from './desktop.js';
 import { enterImmersive } from './xr-session.js';
+import { warmDemoModel } from './model-loader.js';
 import './style.css';
 
 World.create(
   document.getElementById('scene-container') as HTMLDivElement,
   projectOptions,
 ).then((world) => {
+  warmDemoModel();
   world.registerSystem(ShoppingSystem);
   world.registerSystem(ModelPlacementSystem);
   const desktop = document.getElementById('desktop')!;

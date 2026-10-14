@@ -6,7 +6,7 @@ Trail is a voice and text shopping experience for Meta Quest Browser. Search the
 
 ## Demo paths
 
-- **Fast headset demo:** Open the app in Quest Browser and choose **Enter your room**. Rich's saved 3D body is already in the scene. Choose **Speak your request** and say **“Find me a camping backpack under 150 US dollars.”** Select the black 30L Stealth Angel backpack, then choose **See it in my room**. A compressed, saved model of Rich with that exact backpack appears without another Meshy call. The Shopify variant ID is `gid://shopify/ProductVariant/36808158601`.
+- **Fast headset demo:** Open the app in Quest Browser and choose **Enter your room**. Rich's saved 3D body appears in AR. Choose **Use demo model** in the spatial shopping controls to select the black 30L Stealth Angel backpack and show Rich wearing it immediately. The saved model uses no Meshy credits. The Shopify variant ID is `gid://shopify/ProductVariant/36808158601`.
 - **Any selected Shopify product:** Search for a backpack, jacket, tent, or another product, open a product card, and choose **Generate 3D preview**. The backend rechecks the selected variant and sends up to four verified Shopify images to Meshy. When ready, the model appears beside the panel. Other backpacks are fitted approximately to the saved Rich body; other products appear as standalone room objects. This generation consumes Meshy credits and can take several minutes.
 - **Photo preview:** Rich's demo photo loads automatically when you open try-on. You can replace it with an upload or camera capture. Enter the private demo token and choose **Generate my try-on**. Wearables are shown on the person; other products are placed beside them. This is an AI image visualization, not a fit measurement.
 - **Checkout:** Choose **Buy selected** or say “buy this item.” The server rechecks the variant, price, availability and merchant, prepares quantity one, and hands off to merchant checkout. Trail never collects payment details or places the order.
@@ -45,7 +45,7 @@ Quest passthrough is a composited environment; this app does not read Quest came
 - `server/catalog.ts` searches Shop MCP, enforces the spoken USD budget, and maps each Shopify variant to an exact selectable product. The default cap is $150 if no budget is spoken; explicit caps up to $500 are accepted.
 - `server/model.ts` validates that the selected variant still occurs in the same Shopify query, returns the prepared model for the demo variant, or starts and polls a protected Meshy task for another product.
 - `src/store.ts` keeps selection and async tasks in sync. Switching products cancels the visible old result. A Meshy task ID is kept in session storage so the same browser tab can resume polling after a refresh.
-- `src/model-placement.ts` loads the GLB through IWSDK's asset manager and shows Rich at entry, then places selected models beside the spatial controls. `src/shopping.ts` binds spatial controls to the same store.
+- `src/model-placement.ts` loads the GLB through a same-origin Draco decoder and shows Rich at entry, then places selected models beside the spatial controls. `src/shopping.ts` binds spatial controls to the same store.
 - Voice and typed action commands use a bounded local router and AG-UI tool progress. They do not use a multi-turn LLM planner.
 
 ```sh

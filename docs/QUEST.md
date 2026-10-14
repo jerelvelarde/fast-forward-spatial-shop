@@ -5,15 +5,14 @@ Open [https://trailxr.vercel.app/](https://trailxr.vercel.app/) in Quest Browser
 ## Prepared 3D demo
 
 1. Choose **Enter your room** in Quest Browser and allow immersive access. The default is passthrough AR, with **Enter VR** as a fallback. One browser click is required to start WebXR.
-2. Rich's saved 3D body is already in the scene. Point and pinch, or use a controller trigger, on **Speak your request**. Say **“Find me a camping backpack under 150 US dollars.”** Press again to finish recording. **Try backpack search** runs that same query without a microphone.
-3. Floating Shopify cards appear after the search. Previous/Next or the right thumbstick browse; click anywhere on a card to open its focused action panel.
-4. Select the black 30L Stealth Angel backpack and say **“try it on”** or choose **See it in my room**. This loads the exact bundled backpack-on-Rich GLB and places it beside the controls without a floor-placement click or Meshy credits.
-5. **Rotate preview** turns Rich by 45 degrees. **Browse products** returns to the cards. Changing products removes the previous backpack preview and restores the original body.
-6. **Bring UI here** moves the panels in front of your current position and eye height. Panels then remain still while you look around. Models appear about two meters ahead and to the right at an estimated floor height; they are not anchored to a detected room mesh.
+2. Rich's saved 3D body is already in the scene. Choose **Use demo model** in the spatial shopping controls. This selects the black 30L Stealth Angel backpack and shows Rich wearing it without a search, another placement click, or Meshy credits.
+3. **Rotate preview** turns Rich by 45 degrees. **Browse products** returns to the cards. Changing products removes the previous backpack preview and restores the original body.
+4. For live shopping, choose **Speak your request** and say **“Find me a camping backpack under 150 US dollars.”** Press again to finish recording. **Try backpack search** runs that query without a microphone. Previous/Next or the right thumbstick browse the Shopify cards.
+5. **Bring UI here** moves the panels in front of your current position and eye height. Panels then remain still while you look around. Models appear about two meters ahead and to the right at an estimated floor height; they are not anchored to a detected room mesh.
 
 ## Generate a new selected item
 
-Search for a jacket, tent, another backpack, or other item and select its Shopify card. Open the product card and choose **Generate 3D preview**; no demo token is needed. The server uses its private Meshy key. The request sends the exact selected variant's available Shopify image URLs to Meshy 6 Lite. Generation may take several minutes. When it is ready, the selected model appears beside the spatial panel. **Place again** repositions it relative to your current view. A new backpack is placed approximately on Rich's saved body; other products appear as standalone 3D objects. One product image can be enough for the API, but quality improves with more angles. Each new item costs Meshy API credits.
+Search for a jacket, tent, another backpack, or other item and select its Shopify card. Open the product card and choose **Create 3D preview**; no demo token is needed. The server uses its private Meshy key. The request sends the exact selected variant's available Shopify image URLs to Meshy 6 Lite. Generation may take several minutes. When it is ready, the selected model appears beside the spatial panel. **Show in room again** repositions it relative to your current view. A new backpack is placed approximately on Rich's saved body; other products appear as standalone 3D objects. One product image can be enough for the API, but quality improves with more angles. Each new item costs Meshy API credits.
 
 ## Other controls
 
