@@ -105,7 +105,9 @@ export class ModelPlacementSystem extends createSystem({}) {
     const backpack = store.getState().products.find(product => product.id === productId)?.previewMode === 'backpack';
     const withBody = !prepared && backpack && this.bodyAvailable;
     group.name = prepared || withBody ? 'Rich with selected Shopify backpack' : 'Selected Shopify product';
-    const model = gltf.scene;
+    // AssetManager caches GLTF scenes. Clone before sizing and positioning so
+    // placing the same product again does not keep scaling the cached original.
+    const model = gltf.scene.clone(true);
     group.add(model);
     const bounds = new Box3().setFromObject(model);
     const height = bounds.max.y - bounds.min.y;
@@ -115,7 +117,7 @@ export class ModelPlacementSystem extends createSystem({}) {
     const sizedBounds = new Box3().setFromObject(model);
     model.position.y -= sizedBounds.min.y;
     if (withBody) {
-      const body = AssetManager.getGLTF('rich-body')?.scene;
+      const body = AssetManager.getGLTF('rich-body')?.scene.clone(true);
       if (body) {
         const bodyBounds = new Box3().setFromObject(body);
         const bodyHeight = bodyBounds.max.y - bodyBounds.min.y;
