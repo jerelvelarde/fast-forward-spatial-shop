@@ -159,3 +159,19 @@ body:not(.xr-active):not(.xr-starting) #scene-container{visibility:hidden}
 @media(max-width:600px){.checkout-item{gap:15px}.checkout-item img{width:100px;height:130px}.checkout-item h3{font-size:17px}#ar-buy-backpack{font-size:9px}.trail-header #enter-ar{padding:8px;font-size:10px}}
 
 #selection-message{color:var(--lime);font-size:12px;line-height:1.5;margin:10px 0}#device-status{padding:10px 14px;border:1px solid var(--line);border-radius:10px}#device-status:empty{display:none}
+
+/* The Quest browser is an entry gate. The shopping interface lives in WebXR. */
+.quest-companion .discovery-panel,.quest-companion .product-dock,.quest-companion #webcam-mode,.quest-companion #enter-ar,.quest-companion .header-caption{display:none}
+.quest-companion .trail-workspace{min-height:calc(100dvh - 160px)}
+#headset-entry{width:min(100%,580px);text-align:center;align-self:center;padding:30px 20px}
+#headset-entry h1{font-size:48px;letter-spacing:-2px;margin:16px 0}
+#headset-entry>p{font-size:19px;line-height:1.6;color:var(--muted);margin:0 0 28px}
+#headset-entry #start-headset{font-size:23px;min-height:84px;border-radius:18px;padding:24px 30px}
+#headset-entry #start-headset svg{width:28px;height:28px}
+#headset-entry #headset-status{font-size:16px;margin:20px 0;min-height:52px}
+#headset-entry #browser-setup{font-size:16px;min-height:48px;padding:12px}
+.quest-companion #enter-vr{min-height:48px;font-size:16px;padding:12px 22px}
+
+#headset-entry #browser-setup{background:none;border:0;color:var(--muted);text-decoration:underline;text-underline-offset:5px}
+
+#headset-entry #headset-vr{display:block;margin:0 auto 6px;background:none;border:0;min-height:48px;padding:12px;font-size:16px;color:var(--muted)}

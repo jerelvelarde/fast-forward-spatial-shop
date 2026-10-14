@@ -1,13 +1,16 @@
-import { AssetManager, Box3, DoubleSide, EnvironmentRaycastTarget, Group, InputComponent, Mesh, MeshBasicMaterial, RaycastSpace, RingGeometry, Vector3, createSystem } from '@iwsdk/core';
+import { AssetManager, Box3, Group, Vector3, VisibilityState, createSystem } from '@iwsdk/core';
 import { store } from './store.js';
 
-/** Places a selected product model at a Quest AR surface hit. */
+/** A saved demo body is present at entry; selected models appear beside the UI. */
 export class ModelPlacementSystem extends createSystem({}) {
-  private reticle!: ReturnType<typeof this.world.createTransformEntity>;
+  private demoBody?: ReturnType<typeof this.world.createTransformEntity>;
+  private bodyLoading = false;
+  private alive = true;
+  private loadingPreview = false;
+  private enterPending = false;
+  private active = false;
   private placed?: ReturnType<typeof this.world.createTransformEntity>;
-  private awaitingPlacement = false;
   private request = 0;
-  private activeAssetKey: string | null = null;
   private readonly assetUrls = new Map<string, string>();
   private readonly position = new Vector3();
   private readonly head = new Vector3();
@@ -15,11 +18,19 @@ export class ModelPlacementSystem extends createSystem({}) {
   private bodyAvailable = false;
 
   init(): void {
-    const ring = new Mesh(new RingGeometry(0.075, 0.09, 32), new MeshBasicMaterial({ color: '#c8f36b', side: DoubleSide, depthTest: false }));
-    ring.rotation.x = -Math.PI / 2;
-    this.reticle = this.world.createTransformEntity(ring);
-    this.reticle.addComponent(EnvironmentRaycastTarget, { space: RaycastSpace.Right, maxDistance: 5 });
-    ring.visible = false;
+    this.cleanupFuncs.push(this.world.visibilityState.subscribe(value => {
+      const active = value !== VisibilityState.NonImmersive;
+      if (active && !this.active) this.enterPending = true;
+      this.active = active;
+      if (this.placed?.object3D) this.placed.object3D.visible = active;
+      if (this.demoBody?.object3D) this.demoBody.object3D.visible = active && !this.placed;
+    }));
+    const rotate = () => {
+      const model = this.placed?.object3D ?? this.demoBody?.object3D;
+      if (model) model.rotation.y += Math.PI / 4;
+    };
+    window.addEventListener('trail:rotate-model', rotate);
+    this.cleanupFuncs.push(() => window.removeEventListener('trail:rotate-model', rotate));
     const requestPlacement = () => { void this.preparePlacement(); };
     window.addEventListener('trail:place-model', requestPlacement);
     this.cleanupFuncs.push(() => window.removeEventListener('trail:place-model', requestPlacement));
@@ -27,33 +38,33 @@ export class ModelPlacementSystem extends createSystem({}) {
       if (this.placed && this.placed.object3D?.userData.productId !== state.selectedId) {
         this.placed.dispose({ disposeResources: false });
         this.placed = undefined;
+        if (this.demoBody?.object3D) this.demoBody.object3D.visible = this.active;
       }
       if (state.modelStatus !== 'ready' || state.modelProductId !== state.selectedId) {
-        this.awaitingPlacement = false;
-        this.activeAssetKey = null;
         this.request++;
       }
     }));
     this.cleanupFuncs.push(() => {
+      this.alive = false; this.request++;
       this.placed?.dispose({ disposeResources: false });
-      this.reticle.dispose({ disposeResources: false });
-      ring.geometry.dispose();
-      (ring.material as MeshBasicMaterial).dispose();
+      this.demoBody?.dispose({ disposeResources: false });
       for (const url of this.assetUrls.values()) URL.revokeObjectURL(url);
     });
   }
 
   private async preparePlacement(): Promise<void> {
     const state = store.getState();
+    if (this.loadingPreview) return;
     if (state.modelStatus !== 'ready' || !state.modelUrl || state.modelProductId !== state.selectedId) return;
-    if (!this.world.session || this.world.session.environmentBlendMode === 'opaque') {
-      store.setModelMessage('Enter Quest AR, then choose Place in room.');
+    if (!this.world.session) {
+      store.setModelMessage('Enter your room to view the selected model.');
       return;
     }
+    this.loadingPreview = true;
     const request = ++this.request;
     const prepared = state.modelUrl.startsWith('/demo/rich-with-backpack.glb');
     const backpack = state.products.find(product => product.id === state.selectedId)?.previewMode === 'backpack';
-    store.setModelMessage('Loading the selected 3D product for Quest AR…');
+    store.setModelMessage('Loading your 3D preview...');
     try {
       let assetKey = state.modelUrl;
       if (!prepared) {
@@ -74,32 +85,21 @@ export class ModelPlacementSystem extends createSystem({}) {
           catch { this.bodyAvailable = false; }
         }
       }
-      if (request !== this.request || store.getState().selectedId !== state.modelProductId) return;
-      this.activeAssetKey = assetKey;
-      this.awaitingPlacement = true;
-      const hitTest = this.world.session.enabledFeatures?.includes('hit-test');
-      if (hitTest) store.setModelMessage(`Point your right controller at the floor and press trigger to place ${prepared || (backpack && this.bodyAvailable) ? 'Rich with the backpack' : 'the selected product'}.`);
-      else this.placeAhead(assetKey, state.modelProductId!);
+      if (!this.alive || !this.active || request !== this.request || store.getState().selectedId !== state.modelProductId) return;
+      this.placeAhead(assetKey, state.modelProductId!);
     } catch {
-      store.setModelMessage('The 3D file could not load in Quest. Retry, or generate a new model.');
-    }
+      if (this.alive && request === this.request) store.setModelMessage('The 3D file could not load. Retry, or generate a new model.');
+    } finally { this.loadingPreview = false; }
   }
 
   private placeAhead(url: string, productId: string): void {
-    this.camera.getWorldPosition(this.head);
-    this.camera.getWorldDirection(this.direction);
-    this.direction.y = 0;
-    this.direction.normalize();
-    this.position.copy(this.head).addScaledVector(this.direction, 1.6);
-    this.position.y = Math.max(0, this.head.y - 1.6);
-    this.place(url, productId);
-    store.setModelMessage('Placed the 3D preview ahead of you. Walk around to inspect it.');
+    this.positionAhead();
+    if (this.place(url, productId)) store.setModelMessage('In your room. Walk around to inspect, or choose Rotate preview.');
   }
 
-  private place(url: string, productId: string): void {
+  private place(url: string, productId: string): boolean {
     const gltf = AssetManager.getGLTF(url);
-    if (!gltf) { store.setModelMessage('The prepared 3D model is unavailable.'); return; }
-    this.placed?.dispose({ disposeResources: false });
+    if (!gltf) { store.setModelMessage('The prepared 3D model is unavailable.'); return false; }
     const group = new Group();
     const prepared = url.startsWith('/demo/rich-with-backpack.glb');
     const backpack = store.getState().products.find(product => product.id === productId)?.previewMode === 'backpack';
@@ -111,7 +111,7 @@ export class ModelPlacementSystem extends createSystem({}) {
     group.add(model);
     const bounds = new Box3().setFromObject(model);
     const height = bounds.max.y - bounds.min.y;
-    if (!Number.isFinite(height) || height <= 0) { store.setModelMessage('The 3D model has invalid dimensions.'); return; }
+    if (!Number.isFinite(height) || height <= 0) { store.setModelMessage('The 3D model has invalid dimensions.'); return false; }
     const extent = prepared || withBody ? height : Math.max(height, bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z);
     model.scale.multiplyScalar((prepared ? 1.72 : withBody ? 0.5 : 0.65) / extent);
     const sizedBounds = new Box3().setFromObject(model);
@@ -135,21 +135,57 @@ export class ModelPlacementSystem extends createSystem({}) {
     this.camera.getWorldPosition(this.head);
     group.rotation.y = Math.atan2(group.position.x - this.head.x, group.position.z - this.head.z);
     group.userData.productId = productId;
+    this.placed?.dispose({ disposeResources: false });
     this.placed = this.world.createTransformEntity(group);
-    this.awaitingPlacement = false;
-    this.reticle.object3D!.visible = false;
+    if (this.demoBody?.object3D) this.demoBody.object3D.visible = false;
+    return true;
+  }
+
+  private async showDemoBody(): Promise<void> {
+    if (this.demoBody || this.bodyLoading) return;
+    this.bodyLoading = true;
+    try {
+      await AssetManager.loadGLTFById('rich-body');
+      if (!this.alive) return;
+      this.bodyAvailable = true;
+      const body = AssetManager.getGLTF('rich-body')?.scene.clone(true);
+      if (!body) return;
+      const bounds = new Box3().setFromObject(body);
+      const height = bounds.max.y - bounds.min.y;
+      if (!Number.isFinite(height) || height <= 0) return;
+      body.scale.multiplyScalar(1.72 / height);
+      body.position.y -= new Box3().setFromObject(body).min.y;
+      const group = new Group();
+      group.name = 'Rich / saved demo body';
+      group.add(body);
+      this.positionAhead();
+      group.position.copy(this.position);
+      group.rotation.y = Math.atan2(group.position.x - this.head.x, group.position.z - this.head.z);
+      group.visible = this.active && !this.placed;
+      this.demoBody = this.world.createTransformEntity(group);
+    } catch {
+      store.setModelMessage('Rich could not load. Your shopping cards still work; reload to retry the saved body.');
+    } finally { this.bodyLoading = false; }
+  }
+
+  private positionAhead(): void {
+    this.player.head.getWorldPosition(this.head);
+    this.player.head.getWorldDirection(this.direction);
+    this.direction.negate(); this.direction.y = 0; this.direction.normalize();
+    this.position.copy(this.head).addScaledVector(this.direction, 2.1);
+    this.position.x -= this.direction.z * 0.75;
+    this.position.z += this.direction.x * 0.75;
+    this.position.y = Math.max(0, this.head.y - 1.6);
   }
 
   update(): void {
-    if (!this.awaitingPlacement) { this.reticle.object3D!.visible = false; return; }
-    const hit = this.reticle.getValue(EnvironmentRaycastTarget, 'xrHitTestResult');
-    this.reticle.object3D!.visible = Boolean(hit);
-    if (!hit || !this.input.xr.gamepads.right?.getButtonDown(InputComponent.Trigger)) return;
-    this.reticle.object3D!.getWorldPosition(this.position);
-    const state = store.getState();
-    if (this.activeAssetKey && state.modelProductId === state.selectedId) {
-      this.place(this.activeAssetKey, state.modelProductId!);
-      store.setModelMessage('Placed the 3D preview in your room. Walk around to inspect it.');
-    }
+    if (!this.enterPending) return;
+    this.enterPending = false;
+    const displayed = this.placed ?? this.demoBody;
+    if (displayed?.object3D) {
+      this.positionAhead();
+      displayed.object3D.position.copy(this.position);
+      displayed.object3D.rotation.y = Math.atan2(this.position.x - this.head.x, this.position.z - this.head.z);
+    } else void this.showDemoBody();
   }
 }

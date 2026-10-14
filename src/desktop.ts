@@ -31,7 +31,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void |
   root.classList.add('trail-desktop');
   root.innerHTML = `
     <header class="trail-header"><a href="#" class="trail-brand" aria-label="Trail home">${icons.mountain}<span>trail<span class="brand-dot">.</span></span></a><span class="header-caption">Your picks</span><button class="vr-button" id="webcam-mode" disabled>Webcam mode</button><button class="vr-button" id="enter-ar" hidden>Enter Quest AR</button><button class="vr-button" id="enter-vr" disabled>${icons.vr}<span>Enter VR</span></button></header>
-    <main class="trail-workspace"><section class="discovery-panel" aria-label="Find products">
+    <main class="trail-workspace"><section id="headset-entry" aria-label="Enter spatial shopping" hidden><span class="eyebrow">YOUR ROOM. YOUR PICKS.</span><h1>Step into Trail.</h1><p>Rich is already here. Ask for a backpack,<br>browse floating cards, and see it on him.</p><button id="start-headset" class="primary-button" disabled>Enter your room ${icons.arrow}</button><p id="headset-status" role="status" aria-live="polite">Checking headset access…</p><button id="headset-vr" class="text-link" disabled>Use VR showroom instead</button><button id="browser-setup" class="text-link">Browser setup and photo tools</button></section><section class="discovery-panel" aria-label="Find products">
       <h1>What are you looking for?</h1>
       <form class="search-form"><label for="search-query" class="visually-hidden">Ask Trail</label><div class="search-field"><textarea id="search-query" rows="2" maxlength="500" spellcheck="false" placeholder="Find a rain jacket, tent, or backpack…"></textarea><button type="button" id="voice-button" class="icon-button" aria-label="Search by voice">${icons.mic}</button></div><button type="submit" class="primary-button" id="search-button"><span>Search</span>${icons.arrow}</button></form>
       <p id="voice-message" class="small-note"></p>
@@ -112,7 +112,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void |
       signal.addEventListener('abort', abort, { once: true });
     });
   }
-  async function dispatchPrompt(text: string) {
+  async function dispatchPrompt(text: string, forcePhoto = false) {
     if (!text.trim()) return;
     if (/^(?:please )?(?:stop|cancel)(?: (?:action|camera|that|it))?[.!]?$/i.test(text.trim())) { stopWebcam(); return; }
     const plan = parseToolCommand(text);
@@ -125,6 +125,10 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void |
     const state = store.getState();
     if (!state.selectedId) { assistantMessage('Search for a product and select one first.'); return; }
     const buying = plan.includes('prepare_checkout');
+    if (!forcePhoto && !/photo|picture|snapshot/i.test(text) && document.body.classList.contains('xr-active') && plan.includes('generate_try_on') && !plan.includes('take_picture') && (state.selectedId === PREPARED_VARIANT_ID || state.modelStatus === 'ready')) {
+      window.dispatchEvent(new Event('trail:preview-model'));
+      return;
+    }
     if (!buying && plan.includes('generate_try_on') && document.body.classList.contains('xr-active') && (!state.photoDataUrl || (state.accessTokenRequired && !get<HTMLInputElement>('#access-token').value.trim()))) {
       try { await actions.exitVR(); openPhoto(); assistantMessage('Your backpack is selected. Add your photo and demo token, then choose Generate my try-on.'); }
       catch { assistantMessage('Exit immersive mode to add your photo and demo token, then choose Try it on.'); }
@@ -243,21 +247,31 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void |
   get<HTMLButtonElement>('#checkout-back').onclick = () => dialog.close();
   get<HTMLButtonElement>('#checkout-cancel').onclick = () => { stopWebcam(); };
   get<HTMLButtonElement>('#checkout-voice').onclick = () => voice.click();
+  function showVoiceMessage(message: string) { voiceMessage.textContent = message; window.dispatchEvent(new CustomEvent('trail:voice-status', { detail: message })); }
   const onVoice = () => voice.click();
   const onCheckout = () => { void dispatchPrompt('checkout'); };
-  const onTryOn = () => { void dispatchPrompt('try it on'); };
+  const onTryOn = () => { void dispatchPrompt('try it on', true); };
   window.addEventListener('trail:try-on', onTryOn);
   window.addEventListener('trail:voice', onVoice);
   window.addEventListener('trail:checkout', onCheckout);
   let xrPending = false;
   let vrSupported = false;
+  let arSupported = false;
+  const questBrowser = /OculusBrowser/i.test(navigator.userAgent);
+  root.classList.toggle('quest-companion', questBrowser);
+  get('#headset-entry').hidden = !questBrowser;
+  get<HTMLButtonElement>('#headset-vr').onclick = () => { void startXR('vr'); };
+  get<HTMLButtonElement>('#start-headset').onclick = () => { void startXR(arSupported ? 'ar' : 'vr'); };
+  get<HTMLButtonElement>('#browser-setup').onclick = () => { root.classList.remove('quest-companion'); get('#headset-entry').hidden = true; };
+  const headsetStatus = (message: string) => { get('#headset-status').textContent = message; };
   async function startXR(mode: 'vr' | 'ar') {
     if (xrPending) return;
     xrPending = true;
     stopWebcam(); cancelVoice();
     if (dialog.open) dialog.close();
     const note = get('#device-status');
-    note.hidden = false; note.textContent = 'Starting XR… Accept the headset permission prompt.';
+    note.hidden = false; note.textContent = 'Starting XR… Accept the headset permission prompt.'; headsetStatus(note.textContent);
+    get<HTMLButtonElement>('#start-headset').disabled = true; get<HTMLButtonElement>('#headset-vr').disabled = true;
     document.body.classList.add('xr-starting');
     get<HTMLButtonElement>('#enter-vr').disabled = true;
     get<HTMLButtonElement>('#enter-ar').disabled = true;
@@ -265,12 +279,12 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void |
       const enter = mode === 'ar' ? actions.enterAR : actions.enterVR;
       if (!enter) throw new DOMException('Unsupported mode', 'NotSupportedError');
       await enter();
-      if (mounted) note.textContent = 'XR started. Use the controller ray and trigger to select a product.';
+      if (mounted) { note.textContent = 'XR started. Use the controller ray and trigger to select a product.'; headsetStatus('Your room is ready. Enter again whenever you like.'); }
     } catch (error) {
-      if (mounted) note.textContent = xrFailureMessage(error);
+      if (mounted) { note.textContent = xrFailureMessage(error); headsetStatus(note.textContent); }
     } finally {
       xrPending = false; document.body.classList.remove('xr-starting');
-      if (mounted) { get<HTMLButtonElement>('#enter-vr').disabled = !vrSupported; get<HTMLButtonElement>('#enter-ar').disabled = false; }
+      if (mounted) { get<HTMLButtonElement>('#enter-vr').disabled = !vrSupported; get<HTMLButtonElement>('#enter-ar').disabled = false; get<HTMLButtonElement>('#start-headset').disabled = !vrSupported && !arSupported; get<HTMLButtonElement>('#headset-vr').disabled = !vrSupported; }
     }
   }
   get<HTMLButtonElement>('#enter-ar').onclick = () => { void startXR('ar'); };
@@ -279,11 +293,14 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void |
     const supports = async (mode: XRSessionMode) => !!xr && await xr.isSessionSupported(mode).catch(() => false);
     const [vr, ar] = window.isSecureContext ? await Promise.all([supports('immersive-vr'), supports('immersive-ar')]) : [false, false];
     if (!mounted) return;
-    const questBrowser = /OculusBrowser/i.test(navigator.userAgent);
     // A blocked capability probe on Quest should allow an explicit request with actionable feedback.
     vrSupported = vr || (questBrowser && !!xr && window.isSecureContext);
     get<HTMLButtonElement>('#enter-vr').disabled = !vrSupported || xrPending;
-    get<HTMLButtonElement>('#enter-ar').hidden = !ar || !actions.enterAR;
+    arSupported = Boolean(actions.enterAR) && (ar || (questBrowser && !!xr && window.isSecureContext));
+    get<HTMLButtonElement>('#enter-ar').hidden = !arSupported;
+    get<HTMLButtonElement>('#start-headset').disabled = (!arSupported && !vrSupported) || xrPending;
+    get<HTMLButtonElement>('#headset-vr').disabled = !vrSupported || xrPending;
+    headsetStatus(arSupported ? 'Passthrough AR · Point + pinch, or use controller trigger.' : vrSupported ? 'VR showroom ready · Point + pinch, or use controller trigger.' : 'Headset access unavailable. Reload this HTTPS page in Quest Browser.');
     const note = get('#device-status');
     note.textContent = !window.isSecureContext ? 'Headset mode needs an HTTPS URL. Localhost on your laptop does not refer to the laptop from a Quest.' : !vr ? questBrowser ? 'Quest could not confirm XR access. Choose Enter VR to retry and see any permission error.' : 'VR opens in Meta Quest Browser. Webcam shopping is available here.' : /OculusBrowser/i.test(navigator.userAgent) ? 'Quest ready · Use controller rays or hand pinch. Enter Quest AR for passthrough.' : '';
     note.hidden = !note.textContent;
@@ -370,7 +387,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void |
   async function startRecording() {
     const version = ++voiceVersion;
     voice.disabled = true;
-    voiceMessage.textContent = 'Requesting microphone access…';
+    showVoiceMessage('Requesting microphone access…');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (!mounted || version !== voiceVersion) { stream.getTracks().forEach(track => track.stop()); return; }
@@ -385,7 +402,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void |
         setListening(false);
         if (!mounted || version !== voiceVersion) return;
         voice.disabled = true;
-        voiceMessage.textContent = 'Transcribing your request…';
+        showVoiceMessage('Transcribing your request…');
         try {
           const type = recording.mimeType || mimeType || 'audio/webm';
           const form = new FormData();
@@ -395,10 +412,10 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void |
           if (!response.ok || typeof result.text !== 'string') throw new Error(result.error || 'Transcription failed.');
           if (!mounted || version !== voiceVersion) return;
           query.value = result.text;
-          voiceMessage.textContent = `Heard: “${result.text}”`;
+          showVoiceMessage(`Heard: “${result.text}”`);
           void dispatchPrompt(result.text);
         } catch (error) {
-          if (mounted && version === voiceVersion) voiceMessage.textContent = error instanceof Error ? error.message : 'Transcription failed. Type your request instead.';
+          if (mounted && version === voiceVersion) showVoiceMessage(error instanceof Error ? error.message : 'Transcription failed. Type your request instead.');
         } finally {
           if (mounted && version === voiceVersion) voice.disabled = false;
         }
@@ -406,19 +423,19 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void |
       recording.start();
       voice.disabled = false;
       setListening(true);
-      voiceMessage.textContent = 'Recording… press the mic again when you finish.';
+      showVoiceMessage('Recording… press the mic again when you finish.');
       micTimer = setTimeout(() => { if (recorder?.state === 'recording') recorder.stop(); }, 10000);
     } catch {
       stopMicTracks();
       setListening(false);
-      if (mounted && version === voiceVersion) { voice.disabled = false; voiceMessage.textContent = 'Microphone access was declined or recording failed. Type your request instead.'; }
+      if (mounted && version === voiceVersion) { voice.disabled = false; showVoiceMessage('Microphone access was declined or recording failed. Type your request instead.'); }
     }
   }
   const Speech = (window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition }).SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: new () => Recognition }).webkitSpeechRecognition;
   if (Speech) {
     recognition = new Speech(); recognition.lang = 'en-US'; recognition.interimResults = false; recognition.continuous = false;
-    recognition.onresult = event => { if (!mounted || speechVersion !== voiceVersion || document.hidden) return; const transcript = event.results[event.results.length - 1][0].transcript; query.value = transcript; voiceMessage.textContent = `Heard: “${transcript}”`; void dispatchPrompt(transcript); };
-    recognition.onerror = event => { voiceMessage.textContent = event.error === 'not-allowed' ? 'Microphone access was declined. You can type your search.' : 'Voice could not finish. Try again or type your search.'; };
+    recognition.onresult = event => { if (!mounted || speechVersion !== voiceVersion || document.hidden) return; const transcript = event.results[event.results.length - 1][0].transcript; query.value = transcript; showVoiceMessage(`Heard: “${transcript}”`); void dispatchPrompt(transcript); };
+    recognition.onerror = event => { showVoiceMessage(event.error === 'not-allowed' ? 'Microphone access was declined. You can type your search.' : 'Voice could not finish. Try again or type your search.'); };
     recognition.onend = () => setListening(false);
   }
   voice.onclick = () => {
@@ -426,11 +443,11 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void |
     if (store.getState().transcriptionEnabled && typeof navigator.mediaDevices?.getUserMedia === 'function' && typeof window.MediaRecorder === 'function') { void startRecording(); return; }
     if (recognition) {
       if (voice.classList.contains('listening')) { recognition.stop(); return; }
-      try { speechVersion = ++voiceVersion; recognition.start(); setListening(true); voiceMessage.textContent = 'Listening… Tell us what you are looking for.'; }
-      catch { voiceMessage.textContent = 'Voice is busy. Try again in a moment.'; }
+      try { speechVersion = ++voiceVersion; recognition.start(); setListening(true); showVoiceMessage('Listening… Tell us what you are looking for.'); }
+      catch { showVoiceMessage('Voice is busy. Try again in a moment.'); }
       return;
     }
-    voiceMessage.textContent = 'Voice is unavailable in this browser. Type your request above.';
+    showVoiceMessage('Voice is unavailable in this browser. Type your request above.');
   };
   function card(product: Product) {
     const button = node('button', 'product-card'); button.type = 'button'; button.dataset.productId = product.id;

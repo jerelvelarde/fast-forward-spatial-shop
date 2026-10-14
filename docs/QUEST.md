@@ -4,23 +4,24 @@ Open [https://trailxr.vercel.app/](https://trailxr.vercel.app/) in Quest Browser
 
 ## Prepared 3D demo
 
-1. On the browser page, search **“Find me a camping backpack under 150 US dollars.”** The black 30L Stealth Angel backpack should appear first. Select it.
-2. Choose **Load prepared 3D preview**. The browser should report that Rich and the backpack are ready. This uses the bundled GLB and spends no Meshy credits.
-3. Choose **Enter Quest AR** and allow the XR request. Passthrough should show the room with shopping cards.
-4. Choose **Place in room** in the spatial controls. Point the right controller at a clear floor area and press the trigger when the placement ring appears. Walk around Rich to inspect the backpack. If surface hit testing is unavailable, the model is placed ahead of you.
-5. Use the right thumbstick or Previous/Next to browse; point and trigger to select another card. Switching products clears the old placement.
+1. Choose **Enter your room** in Quest Browser and allow immersive access. The default is passthrough AR, with **Enter VR** as a fallback. One browser click is required to start WebXR.
+2. Rich's saved 3D body is already in the scene. Point and pinch, or use a controller trigger, on **Speak your request**. Say **“Find me a camping backpack under 150 US dollars.”** Press again to finish recording. **Try backpack search** runs that same query without a microphone.
+3. Floating Shopify cards appear after the search. Previous/Next or the right thumbstick browse; click anywhere on a card to open its focused action panel.
+4. Select the black 30L Stealth Angel backpack and say **“try it on”** or choose **See it in my room**. This loads the exact bundled backpack-on-Rich GLB and places it beside the controls without a floor-placement click or Meshy credits.
+5. **Rotate preview** turns Rich by 45 degrees. **Browse products** returns to the cards. Changing products removes the previous backpack preview and restores the original body.
+6. **Bring UI here** moves the panels in front of your current position and eye height. Panels then remain still while you look around. Models appear about two meters ahead and to the right at an estimated floor height; they are not anchored to a detected room mesh.
 
 ## Generate a new selected item
 
-Search for a jacket, tent, another backpack, or other item and select its Shopify card. Choose **Generate 3D product**; no demo token is needed. The server uses its private Meshy key and sends the exact selected variant's available Shopify image URLs to Meshy 6 Lite. Generation may take several minutes. When it is ready, enter or return to Quest AR and choose **Place in room**. A new backpack is placed approximately on Rich's saved body; other products appear as standalone 3D objects. One product image can be enough for the API, but quality improves with more angles. Each new item costs Meshy API credits.
+Search for a jacket, tent, another backpack, or other item and select its Shopify card. Open the product card and choose **Generate 3D preview**; no demo token is needed. The server uses its private Meshy key. The request sends the exact selected variant's available Shopify image URLs to Meshy 6 Lite. Generation may take several minutes. When it is ready, the selected model appears beside the spatial panel. **Place again** repositions it relative to your current view. A new backpack is placed approximately on Rich's saved body; other products appear as standalone 3D objects. One product image can be enough for the API, but quality improves with more angles. Each new item costs Meshy API credits.
 
 ## Other controls
 
-- **Speak / stop** records a shopping request or command. Press again to finish. You can always type a search on the browser page.
+- **Speak your request** records a shopping request or command. Press again to finish. You can always type a search on the browser page.
 - **Photo preview** loads Rich's demo photo automatically when opened. You can replace it with a photo uploaded or captured on the browser page; generation still needs the private demo token. Quest passthrough does not expose camera pixels to this app; the webcam and gesture mode runs on a laptop.
 - **Buy selected** rechecks the exact Shopify variant, prepares quantity one, exits immersive mode, and opens a review with a merchant checkout link. Payment is handled by the merchant. Do not complete payment during a demo unless you intend to purchase.
-- **Enter VR** uses the virtual showroom; **Enter Quest AR** uses room passthrough. The AR button only appears if Quest Browser reports `immersive-ar` support.
+- **Enter VR** uses the virtual showroom; **Enter Quest AR** uses room passthrough. If a capability probe is blocked on Quest, the entry button still permits an explicit immersive request and displays any permission error.
 
 ## Headset acceptance check
 
-On a physical Quest, confirm microphone permission, readable cards, controller selection, thumbstick navigation, AR passthrough, floor placement and walk-around model scale. Test one non-backpack product and confirm its model is a standalone object. Verify checkout review and link without submitting payment. Desktop emulation and automated tests do not prove headset performance.
+On a physical Quest, confirm microphone permission, readable cards, controller selection, thumbstick navigation, AR passthrough, initial Rich body visibility, recentering from seated and standing positions, rotate actions, and walk-around model scale. Test one non-backpack product and confirm its model is a standalone object. Verify checkout review and link without submitting payment. Desktop emulation and automated tests do not prove headset performance.
