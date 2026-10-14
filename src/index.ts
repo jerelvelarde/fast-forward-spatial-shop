@@ -32,6 +32,7 @@ World.create(
   });
   world.visibilityState.subscribe(value => {
     document.body.classList.toggle('xr-active', value !== VisibilityState.NonImmersive);
+    if (value !== VisibilityState.NonImmersive) window.dispatchEvent(new Event('trail:xr-enter'));
   });
 }).catch(error => {
   console.error('IWSDK could not start', error);

@@ -1,5 +1,6 @@
 import { DEFAULT_QUERY, formatPrice, type Product } from './contracts.js';
 import { store, type StoreState } from './store.js';
+import { WebcamCapture, type WebcamState } from './webcam.js';
 import './style.css';
 
 interface Recognition extends EventTarget {
@@ -39,7 +40,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     </section><div class="scene-caption"><span class="scene-label">YOUR SPATIAL SHOWROOM</span><p>Point to a card. Make it yours.</p><span class="scene-help">Desktop preview · Enter VR for the full view</span></div></main>
     <section class="product-dock" aria-label="Backpack results"><div class="dock-top"><div><span class="eyebrow">CURATED BY YOUR INTENT</span><span id="result-count">Ready when you are</span></div><div class="carousel-controls"><span>Swipe to explore</span><button id="previous-product" class="icon-button" aria-label="Previous backpack">←</button><button id="next-product" class="icon-button" aria-label="Next backpack">→</button></div></div><div class="product-rail" tabindex="0" aria-label="Swipe backpack options"></div></section>
     <footer class="trail-footer"><span>BUILT FOR THE GREAT OUTDOORS.</span><span>Shopify catalog <b>×</b> Meta IWSDK</span></footer>
-    <dialog class="tryon-dialog"><div class="dialog-heading"><div><div class="eyebrow">03 / THE FINAL LOOK</div><h2>A little closer to the trail.</h2></div><button class="icon-button" id="close-tryon" aria-label="Close try-on">×</button></div><div class="tryon-body"><div class="person-preview"><img id="person-image" alt="Your photo for the backpack try-on" hidden><div class="photo-placeholder">${icons.mountain}<span>Your adventure.<br>Your perspective.</span><p>Add a rear or three-quarter view photo<br>to see the backpack on you.</p></div><span class="preview-label">YOUR PHOTO</span></div><div class="tryon-options"><div class="eyebrow">SELECTED BACKPACK</div><h3 id="tryon-product"></h3><p id="tryon-price"></p><label class="upload-button" for="person-upload">Upload your photo <span>↑</span></label><input id="person-upload" type="file" accept="image/jpeg,image/png,image/webp" class="visually-hidden"><button class="secondary-button" id="demo-photo">Use the video frame</button><p class="small-note">JPEG, PNG or WebP · up to 2 MB<br>Your photo is sent to the image model only when you generate.</p><div class="setup-note" id="setup-note">Live try-on is ready to connect.<br><span>Add <code>AI_GATEWAY_API_KEY</code> and a private <code>TRY_ON_ACCESS_TOKEN</code> to the server environment to enable generation.</span></div><label class="token-field" hidden>Demo access token<input type="password" id="access-token" autocomplete="off" placeholder="Private demo token"></label><button id="generate-tryon" class="primary-button">Generate my try-on <span>✧</span></button><p id="tryon-message" class="small-note" role="status" aria-live="polite"></p></div></div></dialog>`;
+    <dialog class="tryon-dialog"><div class="dialog-heading"><div><div class="eyebrow">03 / THE FINAL LOOK</div><h2>A little closer to the trail.</h2></div><button class="icon-button" id="close-tryon" aria-label="Close try-on">×</button></div><div class="tryon-body"><div class="person-preview"><video id="webcam-preview" autoplay muted playsinline aria-label="Live webcam preview" hidden></video><img id="person-image" alt="Your photo for the backpack try-on" hidden><div class="photo-placeholder">${icons.mountain}<span>Your adventure.<br>Your perspective.</span><p>Add a rear or three-quarter view photo<br>to see the backpack on you.</p></div><span class="preview-label">YOUR PHOTO</span></div><div class="tryon-options"><div class="eyebrow">SELECTED BACKPACK</div><h3 id="tryon-product"></h3><p id="tryon-price"></p><label class="upload-button" for="person-upload">Upload your photo <span>↑</span></label><input id="person-upload" type="file" accept="image/jpeg,image/png,image/webp" class="visually-hidden"><button class="secondary-button" id="use-webcam">Use webcam</button><div class="webcam-controls" hidden><button class="primary-button" id="capture-photo" disabled>Capture photo</button><button class="secondary-button" id="stop-webcam">Stop camera</button></div><p id="webcam-message" class="small-note" role="status" aria-live="polite"></p><p class="small-note webcam-guidance">A front view can show shoulder straps. A rear or three-quarter photo gives the best view of the backpack.</p><button class="secondary-button" id="demo-photo">Use the video frame</button><p class="small-note">JPEG, PNG or WebP · up to 2 MB<br>Your photo is sent to the image model only when you generate.</p><div class="setup-note" id="setup-note">Live try-on is ready to connect.<br><span>Add <code>AI_GATEWAY_API_KEY</code> and a private <code>TRY_ON_ACCESS_TOKEN</code> to the server environment to enable generation.</span></div><label class="token-field" hidden>Demo access token<input type="password" id="access-token" autocomplete="off" placeholder="Private demo token"></label><button id="generate-tryon" class="primary-button">Generate my try-on <span>✧</span></button><p id="tryon-message" class="small-note" role="status" aria-live="polite"></p></div></div></dialog>`;
   const get = <T extends HTMLElement>(selector: string) => root.querySelector<T>(selector)!;
   const query = get<HTMLTextAreaElement>('#search-query'); query.value = DEFAULT_QUERY;
   const rail = get<HTMLDivElement>('.product-rail');
@@ -50,8 +51,14 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
   let lastProducts: Product[] | null = null;
   let lastSelected: string | null = null;
   let lastImage: string | null = null;
+  let photoVersion = 0;
+  let webcamState: WebcamState = { phase: 'idle', message: '' };
+  let webcamPhoto = false;
+  const video = get<HTMLVideoElement>('#webcam-preview');
+  const webcam = new WebcamCapture(video, state => { webcamState = state; if (mounted) render(store.getState()); });
+  const stopWebcam = () => { photoVersion++; webcam.stop(); };
   const openPhoto = () => { if (!dialog.open) dialog.showModal(); };
-  get<HTMLButtonElement>('#enter-vr').onclick = actions.enterVR;
+  get<HTMLButtonElement>('#enter-vr').onclick = () => { stopWebcam(); actions.enterVR(); };
   get<HTMLFormElement>('.search-form').onsubmit = event => { event.preventDefault(); void store.search(query.value); };
   query.onkeydown = event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void store.search(query.value); } };
   get<HTMLButtonElement>('#previous-product').onclick = () => store.move(-1);
@@ -59,22 +66,46 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
   rail.onkeydown = event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); store.move(event.key === 'ArrowLeft' ? -1 : 1); } };
   get<HTMLButtonElement>('#open-tryon').onclick = openPhoto;
   get<HTMLButtonElement>('#close-tryon').onclick = () => dialog.close();
+  dialog.onclose = stopWebcam;
+  dialog.oncancel = stopWebcam;
   dialog.onclick = event => { if (event.target === dialog) dialog.close(); };
   window.addEventListener('trail:photo', openPhoto);
+  window.addEventListener('trail:xr-enter', stopWebcam);
+  const onVisibilityChange = () => { if (document.hidden) stopWebcam(); };
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('pagehide', stopWebcam);
+  get<HTMLButtonElement>('#use-webcam').onclick = () => {
+    photoVersion++;
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      webcamState = { phase: 'error', message: !window.isSecureContext ? 'Camera access needs HTTPS or localhost. Open the secure app URL or upload a photo.' : 'Camera capture is unavailable in this browser. Upload a photo instead.' };
+      render(store.getState()); return;
+    }
+    void webcam.start();
+  };
+  get<HTMLButtonElement>('#stop-webcam').onclick = stopWebcam;
+  get<HTMLButtonElement>('#capture-photo').onclick = async () => {
+    const photo = await webcam.capture();
+    if (photo && mounted && dialog.open) { webcamPhoto = true; store.setPhoto(photo); }
+  };
   get<HTMLInputElement>('#access-token').oninput = event => store.setAccessToken((event.target as HTMLInputElement).value);
   get<HTMLButtonElement>('#generate-tryon').onclick = () => { void store.generateTryOn(get<HTMLInputElement>('#access-token').value || undefined); };
   const readPhoto = (file: Blob) => new Promise<string>((resolve, reject) => {
     const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error('Photo could not be read.')); reader.readAsDataURL(file);
   });
   get<HTMLInputElement>('#person-upload').onchange = async event => {
+    stopWebcam();
+    const version = photoVersion;
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) { get('#tryon-message').textContent = 'Choose a JPEG, PNG or WebP photo smaller than 2 MB.'; return; }
-    try { const photo = await readPhoto(file); if (mounted) store.setPhoto(photo); } catch { get('#tryon-message').textContent = 'Photo could not be read. Try another image.'; }
+    try { const photo = await readPhoto(file); if (mounted && version === photoVersion) { webcamPhoto = false; store.setPhoto(photo); } } catch { if (mounted) get('#tryon-message').textContent = 'Photo could not be read. Try another image.'; }
   };
+  get<HTMLInputElement>('#person-upload').onclick = stopWebcam;
   get<HTMLButtonElement>('#demo-photo').onclick = async () => {
-    try { const response = await fetch('/demo/person.png'); if (!response.ok) throw new Error(); const photo = await readPhoto(await response.blob()); if (mounted) store.setPhoto(photo); }
-    catch { get('#tryon-message').textContent = 'The demo photo could not be loaded. Please upload a photo.'; }
+    stopWebcam();
+    const version = photoVersion;
+    try { const response = await fetch('/demo/person.png'); if (!response.ok) throw new Error(); const photo = await readPhoto(await response.blob()); if (mounted && version === photoVersion) { webcamPhoto = false; store.setPhoto(photo); } }
+    catch { if (mounted && version === photoVersion) get('#tryon-message').textContent = 'The demo photo could not be loaded. Please upload a photo.'; }
   };
   const Speech = (window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition }).SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: new () => Recognition }).webkitSpeechRecognition;
   if (Speech) {
@@ -132,18 +163,28 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     }
     get('#setup-note').hidden = state.tryOnEnabled;
     get('.token-field').hidden = !state.accessTokenRequired;
+    const cameraActive = webcamState.phase === 'requesting' || webcamState.phase === 'ready';
+    const cameraBusy = cameraActive || webcamState.phase === 'capturing';
+    video.hidden = !cameraActive;
+    get('.webcam-controls').hidden = !cameraActive;
+    get<HTMLButtonElement>('#capture-photo').disabled = webcamState.phase !== 'ready';
+    const useWebcam = get<HTMLButtonElement>('#use-webcam');
+    useWebcam.hidden = cameraActive;
+    useWebcam.disabled = webcamState.phase === 'capturing';
+    useWebcam.textContent = webcamPhoto ? 'Retake webcam photo' : 'Use webcam';
+    get('#webcam-message').textContent = webcamState.message;
     const generate = get<HTMLButtonElement>('#generate-tryon');
-    generate.disabled = !selected || !state.photoDataUrl || !state.tryOnEnabled || state.tryOnStatus === 'generating';
+    generate.disabled = cameraBusy || !selected || !state.photoDataUrl || !state.tryOnEnabled || state.tryOnStatus === 'generating';
     generate.firstChild!.textContent = state.tryOnStatus === 'generating' ? 'Creating your preview… ' : 'Generate my try-on ';
     get('#tryon-message').textContent = state.tryOnMessage;
     const photo = state.tryOnImage ?? state.photoDataUrl;
     const img = get<HTMLImageElement>('#person-image');
     if (photo !== lastImage) { if (photo) img.src = photo; else img.removeAttribute('src'); lastImage = photo; }
-    img.hidden = !photo; get('.photo-placeholder').hidden = !!photo;
-    get('.preview-label').textContent = state.tryOnImage ? 'AI TRY-ON · GENERATED PREVIEW' : 'YOUR PHOTO';
-    get('.person-preview').classList.toggle('generating', state.tryOnStatus === 'generating');
+    img.hidden = cameraActive || !photo; get('.photo-placeholder').hidden = cameraActive || !!photo;
+    get('.preview-label').textContent = cameraActive ? 'LIVE CAMERA · NOT YET CAPTURED' : state.tryOnImage ? 'AI TRY-ON · GENERATED PREVIEW' : 'YOUR PHOTO';
+    get('.person-preview').classList.toggle('generating', !cameraActive && state.tryOnStatus === 'generating');
   }
   const unsubscribe = store.subscribe(render);
   void store.configure();
-  return () => { mounted = false; unsubscribe(); if (recognition) { recognition.onresult = null; recognition.onerror = null; recognition.onend = null; recognition.stop(); } window.removeEventListener('trail:photo', openPhoto); root.replaceChildren(); };
+  return () => { mounted = false; stopWebcam(); unsubscribe(); if (recognition) { recognition.onresult = null; recognition.onerror = null; recognition.onend = null; recognition.stop(); } window.removeEventListener('trail:photo', openPhoto); window.removeEventListener('trail:xr-enter', stopWebcam); window.removeEventListener('pagehide', stopWebcam); document.removeEventListener('visibilitychange', onVisibilityChange); root.replaceChildren(); };
 }

@@ -10,14 +10,16 @@
 | Live catalog through UI | Browser Find my backpack returned 12 live USD products below $150 with source URLs and images; no fixture fallback |
 | Desktop selection | Next backpack changed selection from Stealth Angel 30L ($24.95) to MilitaryKart 60L ($64.99); source link changed to that variant |
 | Photo preparation | Try it on dialog opened with selected product; Use the video frame loaded the supplied rear-view human photo |
-| Missing credentials | `/api/config` returned tryOnEnabled:false; dialog explained setup and disabled generation; no paid AI call made |
+| Missing credentials | Before local configuration, `/api/config` returned tryOnEnabled:false; dialog explained setup and disabled generation |
 | VR entry and search | `iwsdk xr enter`, controller look-at, then complete `xr select` on Find backpacks produced `1 of 12` in controls caption |
 | Thumbstick navigation | Right controller X axis 1 then 0 changed live caption from `1 of 12` to `2 of 12` |
 | Ray card selection | Right-card look-at and complete xr select changed caption from `2 of 12` to `3 of 12` |
 | Return to browser | xr exit preserved live results; `verify/final-desktop.png` |
 | Responsive reading | Browser checks at 1280×720 and 390×844; bounded desktop left-panel scroll and opaque phone reading surface |
 | Type safety | `npm run typecheck` includes frontend, backend, adapters, tests and Vite config |
-| Behavioral tests | `npm test`: 12 tests pass — budgets (including spoken numbers), currency/availability/category rejection, MCP failures, private-token guard, MIME/size limits, latest-search wins, old try-on discarded, no photo sent when unconfigured |
+| Behavioral tests | `npm test`: 20 tests pass — budgets (including spoken numbers), currency/availability/category rejection, MCP failures, private-token guard, MIME/size limits, latest-search wins, old try-on discarded, no photo sent when unconfigured, and eight webcam lifecycle/capture cases |
+| Live AI integration | Local `/api/search` → `/api/try-on` with the supplied video frame and live Scout 55L Hiking Backpacks listing ($99.99 at test time) returned a generated image through AI Gateway |
+| Webcam lifecycle | Mocked media tests cover late permissions, superseded requests, playback failure, disconnect, warmup, resizing/size limits, error recovery and successful JPEG capture; real hardware was not opened |
 | Production build | `npm run build` succeeds; includes Trail and API request paths in frontend output |
 
 Use `xr select` for complete click simulation. Setting the analog select value alone did not exercise the whole selectstart/select/selectend sequence in this emulator.
@@ -30,10 +32,14 @@ UIKitML image-specific properties must be element attributes, and the SVG placeh
 
 ## Explicitly pending
 
-- Live Gateway generation: user chose to configure credentials later. Integration and validation are implemented; visual fidelity and provider output are unverified.
+- Physical laptop webcam permission/capture/retake and browser-specific camera behavior. Automated media tests do not establish hardware compatibility.
 - Physical Quest controller/hand behavior, comfort, performance and microphone support. Desktop emulation is not hardware validation.
 - Actual speech recognition using a microphone. The browser path and typed fallback are implemented; no synthesized audio was substituted for a real speech test.
 - Vercel deployment and deployed API smoke test. Local middleware and function adapter are implemented.
 - Build warns about a large SDK bundle (~7.8 MB before gzip, ~2 MB gzip) and includes the starter's desktop emulator. Network startup and Quest frame performance need profiling before wider release.
 
 Photos are not persisted by this app. The supplied demo frame is intentionally bundled. Product observations here are test-time examples, not cached catalog inventory or current price guarantees.
+
+## Live image review
+
+Two authorized Gateway generations were run after local credentials were configured. The first oversized the backpack and obscured the head. Instructions were revised to preserve framing, retain the person's pose, keep the head visible, and scale the pack to the torso, with a 16:9 output setting. The second image visibly placed the selected pack on the back while retaining the person and scene. It remains an approximate appearance preview, not measured fit. The generated verification image is kept outside the public repository. Secrets remain in ignored `.env.local`.

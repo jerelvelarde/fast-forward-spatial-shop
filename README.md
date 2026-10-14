@@ -2,7 +2,7 @@
 
 A voice-driven shopping agent that lets people discover backpacks, swipe through products in VR, and preview a selected backpack on a human. An entry concept for the Fast Forward Virtual Hackathon.
 
-**Status:** Working first build from Meta's IWSDK starter. Live Shopify search, desktop browsing, spatial cards, controller selection, and photo preparation are integrated. The AI try-on endpoint is implemented; live generation requires credentials. Physical Quest testing and deployment remain.
+**Status:** Working first build from Meta's IWSDK starter. Live Shopify search, desktop browsing, spatial cards, controller selection, laptop webcam capture, and AI try-on are integrated. Live generation has been tested with a selected camping backpack. Physical webcam/Quest testing and deployment remain.
 
 ![Working desktop prototype with live Shopify backpack results](design/verify/final-desktop.png)
 
@@ -17,7 +17,9 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:5173. Search, select a pack, choose **Try it on**, and upload a photo or select **Use the video frame**. Product results are live; the app never substitutes fixture inventory. Use the microphone button where browser speech recognition is supported; typing follows the same search path.
+Open http://localhost:5173. Search, select a pack, choose **Try it on**, then **Use webcam**, upload a photo, or select **Use the video frame**. Product results are live; the app never substitutes fixture inventory. Use the microphone button where browser speech recognition is supported; typing follows the same search path.
+
+On a laptop, choose **Use webcam**, allow camera access, frame your shoulders and torso, then **Capture photo**. You can retake it before generating. A front view shows straps; a rear or three-quarter view shows more of the bag. The preview stays local, and only the captured still is sent when you choose **Generate my try-on**. Capture, Stop camera, closing the dialog, hiding the tab, or entering VR turns the camera off. Webcam capture requires HTTPS or localhost; plain HTTP over a LAN will not work.
 
 For the managed Meta desktop emulator:
 
@@ -44,7 +46,7 @@ npm test
 npm run build
 ```
 
-The build retains desktop IWER emulation from the starter. Real headset readability, hand/controller comfort, microphone behavior, and live AI output still need hardware/credential testing. The integrated agent currently uses a bounded tool workflow with explicit budget parsing, not multi-turn LLM conversation. It uses Shop MCP for discovery; no checkout/UCP purchase flow is implemented.
+The build retains desktop IWER emulation from the starter. Real webcam capture, headset readability, hand/controller comfort, and microphone behavior still need hardware testing. The integrated agent currently uses a bounded tool workflow with explicit budget parsing, not multi-turn LLM conversation. It uses Shop MCP for discovery; no checkout/UCP purchase flow is implemented.
 
 ## The experience
 
