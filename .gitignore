@@ -8,4 +8,5 @@ build/
 .next/
 .vercel/
 coverage/
+.iwsdk/
 *.log

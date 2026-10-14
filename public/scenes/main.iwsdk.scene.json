@@ -1,0 +1,225 @@
+{
+  "version": "iwsdk.scene.v1",
+  "units": "meters",
+  "components": {
+    "com.iwsdk.components.DomeGradient": {
+      "sky": [
+        0.035,
+        0.065,
+        0.06,
+        1
+      ],
+      "equator": [
+        0.11,
+        0.16,
+        0.13,
+        1
+      ],
+      "ground": [
+        0.035,
+        0.06,
+        0.05,
+        1
+      ],
+      "intensity": 1
+    }
+  },
+  "resources": {},
+  "nodes": [
+    {
+      "id": "landscape",
+      "name": "Landscape",
+      "content": {
+        "type": "asset",
+        "asset": "landscape"
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ]
+      },
+      "components": {}
+    },
+    {
+      "id": "card-left",
+      "name": "Card Left",
+      "content": {
+        "type": "asset",
+        "asset": "product-card"
+      },
+      "transform": {
+        "position": [
+          -0.88,
+          1.55,
+          -2.25
+        ],
+        "rotationDeg": [
+          0,
+          20,
+          0
+        ]
+      },
+      "components": {
+        "RayInteractable": {}
+      }
+    },
+    {
+      "id": "card-center",
+      "name": "Card Center",
+      "content": {
+        "type": "asset",
+        "asset": "product-card"
+      },
+      "transform": {
+        "position": [
+          0,
+          1.55,
+          -2.1
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ]
+      },
+      "components": {
+        "RayInteractable": {}
+      }
+    },
+    {
+      "id": "card-right",
+      "name": "Card Right",
+      "content": {
+        "type": "asset",
+        "asset": "product-card"
+      },
+      "transform": {
+        "position": [
+          0.88,
+          1.55,
+          -2.25
+        ],
+        "rotationDeg": [
+          0,
+          -20,
+          0
+        ]
+      },
+      "components": {
+        "RayInteractable": {}
+      }
+    },
+    {
+      "id": "shopping-title",
+      "name": "Shopping Title",
+      "content": {
+        "type": "asset",
+        "asset": "shopping-title"
+      },
+      "transform": {
+        "position": [
+          0,
+          2.27,
+          -2.6
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ]
+      },
+      "components": {
+        "RayInteractable": {}
+      }
+    },
+    {
+      "id": "shopping-controls",
+      "name": "Shopping Controls",
+      "content": {
+        "type": "asset",
+        "asset": "shopping-controls"
+      },
+      "transform": {
+        "position": [
+          0,
+          0.88,
+          -2.25
+        ],
+        "rotationDeg": [
+          0,
+          0,
+          0
+        ]
+      },
+      "components": {
+        "RayInteractable": {}
+      }
+    },
+    {
+      "id": "try-on-panel",
+      "name": "Try On Panel",
+      "content": {
+        "type": "asset",
+        "asset": "try-on-panel"
+      },
+      "transform": {
+        "position": [
+          2,
+          1.6,
+          -1.9
+        ],
+        "rotationDeg": [
+          0,
+          -43,
+          0
+        ]
+      },
+      "components": {
+        "RayInteractable": {}
+      }
+    }
+  ],
+  "authoring": {
+    "views": [
+      {
+        "id": "hero",
+        "role": "hero",
+        "projection": "perspective",
+        "position": [
+          0,
+          1.6,
+          0.6
+        ],
+        "target": [
+          0,
+          1.65,
+          -2.2
+        ],
+        "fov": 65
+      },
+      {
+        "id": "spawn",
+        "role": "diagnostic",
+        "projection": "perspective",
+        "position": [
+          0,
+          1.6,
+          0
+        ],
+        "target": [
+          0,
+          1.6,
+          -2.2
+        ],
+        "fov": 80
+      }
+    ]
+  }
+}

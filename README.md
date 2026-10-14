@@ -1,8 +1,50 @@
-# Fast Forward Spatial Shop
+# Trail — Fast Forward Spatial Shop
 
 A voice-driven shopping agent that lets people discover backpacks, swipe through products in VR, and preview a selected backpack on a human. An entry concept for the Fast Forward Virtual Hackathon.
 
-**Status:** Planning and visual concept repository. A standalone Shopify Shop MCP search and generated storyboard have been completed. The integrated application, swipe interaction, and headset experience are not implemented yet.
+**Status:** Working first build from Meta's IWSDK starter. Live Shopify search, desktop browsing, spatial cards, controller selection, and photo preparation are integrated. The AI try-on endpoint is implemented; live generation requires credentials. Physical Quest testing and deployment remain.
+
+![Working desktop prototype with live Shopify backpack results](design/verify/final-desktop.png)
+
+[Verification notes](design/VERIFICATION.md) distinguish tested behavior from the remaining headset and AI checks.
+
+## Run locally
+
+Requires Node 22.12+ (or another version supported in `package.json`).
+
+```sh
+npm ci
+npm run dev
+```
+
+Open http://localhost:5173. Search, select a pack, choose **Try it on**, and upload a photo or select **Use the video frame**. Product results are live; the app never substitutes fixture inventory. Use the microphone button where browser speech recognition is supported; typing follows the same search path.
+
+For the managed Meta desktop emulator:
+
+```sh
+# Stop the plain dev server first if it is running.
+npm run dev:managed
+```
+
+In VR, use **Find backpacks**, point and trigger to select a card, and use the right thumbstick or Previous/Next buttons to browse. Prepare your photo and access token in the browser before entering VR. **Try on selected** displays the generated preview in the panel to your right. Desktop and VR share selection within the same tab.
+
+## Enable AI try-on
+
+Copy `.env.example` to `.env.local`, set `AI_GATEWAY_API_KEY` and a private `TRY_ON_ACCESS_TOKEN` of at least 16 characters, then restart the server. Enter the private demo token in the try-on dialog. Never use `VITE_` prefixes for credentials or commit real values. The token guards the paid generation endpoint; it stays only in browser memory.
+
+The endpoint uses AI SDK and `google/gemini-3.1-flash-image` through Vercel AI Gateway. Override `AI_GATEWAY_IMAGE_MODEL` if needed. It revalidates the selected Shopify variant and sends its verified product image plus the selected human photo to the model. Photos are limited to 2 MB and are not persisted by the application. Generation is an approximate image visualization, not body tracking or a 3D fit simulation.
+
+## Deploy and test
+
+Import this repository into Vercel using its Vite preset. `vercel.json` routes `/api/*` to the Node function and serves the built frontend. Configure the server environment variables to enable generation. Open the deployed HTTPS URL in Quest Browser and enter VR. `npm run preview` serves static output only; use the dev server or Vercel for API-backed testing.
+
+```sh
+npm run typecheck
+npm test
+npm run build
+```
+
+The build retains desktop IWER emulation from the starter. Real headset readability, hand/controller comfort, microphone behavior, and live AI output still need hardware/credential testing. The integrated agent currently uses a bounded tool workflow with explicit budget parsing, not multi-turn LLM conversation. It uses Shop MCP for discovery; no checkout/UCP purchase flow is implemented.
 
 ## The experience
 
@@ -16,7 +58,7 @@ A voice-driven shopping agent that lets people discover backpacks, swipe through
 
 The end goal is a continuous **search → swipe → select → try-on** experience. If no camping backpacks meet the budget, the agent explains that instead of silently showing unsuitable or more expensive products.
 
-The proposed first device target is Meta Quest using WebXR, with a desktop preview for development and demos. The exact Meta device remains to be confirmed.
+The first device target is Meta Quest using WebXR, with a desktop preview for development and demos. Desktop emulation uses the Quest 3 profile.
 
 ```mermaid
 flowchart LR
@@ -52,17 +94,21 @@ The agent applies the selected backpack to the person's captured image and shows
 
 ## Project documents
 
-The documents below capture the initial planning baseline. The camping backpack flow in this README is the current use case.
+The camping backpack flow in this README is the current use case.
 
 - [Hackathon entry brief](docs/ENTRY.md): problem, concept, demo story, and scope.
-- [Technical plan](docs/ARCHITECTURE.md): components, data flow, and integration decisions.
+- [Implementation architecture](docs/ARCHITECTURE.md): components, data flow, and integration decisions.
 - [MVP build checklist](docs/ROADMAP.md): milestones and acceptance criteria.
 
 ## First build target
 
 Complete one path: spoken camping request → live matching backpacks below $150 USD → swipeable spatial cards → VR selection → generated backpack try-on on the human. Use image-based product cards and a captured-person preview for the first build.
 
-There are no installation or run commands yet because this repository currently contains project documentation and visual concepts only.
+The implementation uses three visible spatial image cards backed by up to twelve live results. Browse changes which products are visible; selection and try-on remain tied to the exact variant. Shipping and tax are excluded from the product-price budget. Generated UI is composed from real product data; no product price or inventory is invented.
+
+## Starter attribution
+
+Based on [Meta's IWSDK v0 starter](https://github.com/meta-quest/iwsdk-v0-template) at commit `5185128c864e053d31741c30fa3dccf06ef77797`, with IWSDK 1.0.1. The Apache-2.0 license and upstream copyright notices are retained. The original demo room, robot and cube are replaced with the camping showroom. The storyboard and demo frame are supplied project assets; third-party catalog imagery remains served from its original URLs.
 
 ## References
 
