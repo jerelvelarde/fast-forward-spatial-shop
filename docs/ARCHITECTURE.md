@@ -11,11 +11,12 @@ Vite + TypeScript, Meta IWSDK 1.0.1, a Node API and AI SDK 7. The official start
 | `src/webcam.ts` | Explicit camera session, late-permission cleanup, aspect-preserving JPEG capture capped at 2 MB |
 | `src/gestures.ts` | Landmark-to-action state machine: mirrored open-palm swipes and held pinch, with cooldown/rearming |
 | `src/hand-tracking.ts` / `.worker.ts` | On-device MediaPipe hand inference over the existing camera stream; worker lifecycle and frame backpressure |
-| `src/store.ts` | Shared search, selection and try-on state; stale request cancellation |
+| `src/store.ts` | Shared search, selection, checkout and try-on state; stale request cancellation |
 | `src/shopping.ts` | Reactive UIKitML bindings, ray clicks and thumbstick navigation |
 | `src/assets.ts` | Pure manifest, reused by runtime and editor |
 | `public/scenes/main.iwsdk.scene.json` | Stationary arc, title, controls, try-on panel, landscape |
 | `server/catalog.ts` | Validated budget, Shop MCP request, live variant normalization |
+| `server/checkout.ts` | Revalidate selection, create/recover one Shop checkout and validate merchant continuation |
 | `server/try-on.ts` | Private token guard, photo validation, catalog revalidation, Gateway generation |
 | `server/http.ts` | Web Request/Response routes and bounded JSON bodies |
 | `vite.config.ts` / `api/index.ts` | Local middleware / Vercel fetch adapter |
@@ -46,7 +47,7 @@ Capturing reads the video element only. It never screenshots or composites the o
 
 ## Tool commands and AG-UI
 
-`dispatchPrompt` routes both text and transcribed speech. Explicit photo/try-on commands map to a bounded plan; other requests go to catalog search. Missing selection/configuration/token is reported before camera activation for a combined generation request. With no photo, try-on prepends capture. Gesture inference pauses while tools run, selection is locked, and capture uses a visible three-second countdown.
+`dispatchPrompt` routes both text and transcribed speech. Explicit photo/try-on/buy commands map to a bounded plan; other requests go to catalog search. Missing selection/configuration/token is reported before camera activation for a combined generation request. With no photo, try-on prepends capture. Gesture inference pauses while tools run, selection is locked, and capture uses a visible three-second countdown.
 
 The runner uses `@ag-ui/core` 1.0.2 events: RUN_STARTED, TOOL_CALL_START/ARGS/END, TOOL_CALL_RESULT and RUN_FINISHED or RUN_ERROR. TOOL_CALL_END closes argument streaming; RESULT follows successful execution. Correlated call IDs drive the progress pills. Arguments are empty because handlers obtain validated local state; neither photos nor credentials enter events. This is an in-process event stream with a deterministic router, not a remote AG-UI HttpAgent/SSE server or LLM planner. The protocol can later connect an agent backend while preserving the custom DOM and spatial renderer. See the [official AG-UI project](https://github.com/ag-ui-protocol/ag-ui).
 
@@ -54,7 +55,15 @@ Closing the dialog, entering VR, hiding the tab, changing photo source, cancelli
 
 ## Input and device scope
 
-The microphone uses MediaRecorder to capture up to ten seconds after user activation, then sends the clip to `/api/transcribe` through AI Gateway. Web Speech API is a fallback where recording is unavailable. Typed input is always available. Prepare photo and token in the browser, then enter Quest VR. Ray selection uses IWSDK RayInteractable/UIKitML; the right thumbstick uses built-in edge helpers. Locomotion, grabbing and physics are disabled. Quest uses an HTTPS deployment; localhost supports desktop emulation. Physical Quest and microphone behavior require separate verification.
+The microphone uses MediaRecorder to capture up to ten seconds after user activation, then sends the clip to `/api/transcribe` through AI Gateway. Web Speech API is a fallback where recording or server transcription is unavailable. Typed input is always available. Prepare photo and token in the browser, then enter Quest VR. Ray selection uses IWSDK RayInteractable/UIKitML; the right thumbstick uses built-in edge helpers. Locomotion, grabbing and physics are disabled. Quest uses an HTTPS deployment; localhost supports desktop emulation. Physical Quest and microphone behavior require separate verification.
+
+## Checkout and Quest handoff
+
+`prepare_checkout` sends `{productId, query, expectedPrice, requestId, checkoutId?}` to `/api/checkout`. The server searches again and uses the exact catalog seller domain and opaque variant ID. A new request calls Shop MCP `create_checkout` with quantity one, USD/US context and a UUID idempotency key. A known session calls `get_checkout`. The adapter verifies item ID, quantity, unit price, currency, open status and the HTTPS continuation host before returning the review. Shipping/taxes are confirmed by the merchant; the app does not call `complete_checkout`.
+
+The tab retains each attempt's key and session ID for retries. A selection/search change aborts the local request and removes the old checkout link. An upstream checkout can survive local cancellation, but no order is submitted. `show_checkout` ends the immersive session and opens a DOM review with an explicit merchant link; asynchronous voice never opens a popup automatically.
+
+Quest AR uses `SessionMode.ImmersiveAR`, SDK passthrough background handling and a hidden authored landscape. Production excludes IWER; local development excludes OculusBrowser from injection. Only the transition into immersive mode runs media cleanup, avoiding cancellation on permission-related visibility blur. See [Quest hardware checklist](QUEST.md).
 
 ## Deployment
 

@@ -10,6 +10,8 @@ A voice-driven shopping agent that lets people discover backpacks, swipe through
 
 [Verification notes](design/VERIFICATION.md) distinguish tested behavior from the remaining headset and AI checks.
 
+**Live demo:** https://fast-forward-spatial-shop-lime.vercel.app — open this HTTPS URL in Quest Browser. Search and checkout are deployed. Server voice transcription and AI try-on await server-secret configuration; browser-native speech is used where available.
+
 ## Run locally
 
 Requires Node 22.12+ (or another version supported in `package.json`).

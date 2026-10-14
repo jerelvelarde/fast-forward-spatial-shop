@@ -4,7 +4,7 @@ Model S3A is identified as Meta Quest 3 in [Meta's quick-start guide](https://fc
 
 ## Demo on the headset
 
-1. Deploy the repository to Vercel and open the **HTTPS** deployment URL in Quest Browser. `localhost` on Quest refers to the headset, not your laptop. Configure `AI_GATEWAY_API_KEY` on the server for recorded voice transcription; try-on also needs `TRY_ON_ACCESS_TOKEN`.
+1. Open **https://fast-forward-spatial-shop-lime.vercel.app** in Quest Browser (or your own Vercel deployment). `localhost` on Quest refers to the headset, not your laptop. Configure `AI_GATEWAY_API_KEY` on the server for recorded voice transcription; try-on also needs `TRY_ON_ACCESS_TOKEN`.
 2. Allow microphone access when asked. Say or type **“Find a camping backpack under 150 USD.”** For recorded voice, press the microphone again to finish speaking.
 3. Choose **Enter Quest AR** for floating shopping cards in passthrough, or **Enter VR** for the camping showroom. The AR button appears only when the browser supports `immersive-ar`.
 4. Point a Touch Plus controller ray at a card and press its trigger. Browse with Previous/Next or the right thumbstick. Native hand rays/pinch can select buttons when Quest hand tracking is active.
