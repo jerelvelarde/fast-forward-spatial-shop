@@ -39,6 +39,8 @@ After selecting a backpack, say/type **“Buy this backpack”**, **“Buy it”
 
 Retries retain an idempotency key, then use `get_checkout` once the session is known. Changing the selected backpack clears the old review; errors hide the payment link. The $150 limit applies to product price, with shipping/tax confirmed at checkout. No photo or AI demo credential is sent to checkout.
 
+![Deployed checkout review for the selected camping backpack](design/verify/checkout-review.jpg)
+
 ### Webcam AR shopping and before/after
 
 In **Webcam mode**, the camera fills an AR shopping stage. Three translucent product cards float over the live image with perspective; the selected backpack is in the center. Swipe gestures, pinch selection, card clicks and the on-camera arrows all control that same selection. These are camera-relative overlays, not room-mapped anchors or body-occluded 3D objects.

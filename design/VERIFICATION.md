@@ -78,3 +78,6 @@ The updated harness verifies three floating cards from four products, overlay co
 - Native Quest AR entry, production emulator exclusion and microphone-blur lifecycle are implemented. Physical S3A headset voice, passthrough, hand/controller interaction, frame rate and payment-page handoff still require the checklist in `docs/QUEST.md`. Do not equate synthetic browser tests with hardware validation.
 
 Browser regression page: `/tests/browser/checkout.html` (development only). No real purchases or camera/microphone access are needed by its fixtures.
+
+- Production HTTPS deployment verified at https://fast-forward-spatial-shop-lime.vercel.app: prompt page loaded, live search returned 12 backpacks, and typed “Buy this backpack” prepared the selected Scout 55L at $99.99 with both AG-UI steps completed and a shop.app review link. Screenshot: `design/verify/checkout-review.jpg`. No order was submitted.
+- Production `/api/config` reports `tryOnEnabled: false` and `transcriptionEnabled: false`. Configuring existing credentials there awaits explicit user approval after automatic approval review blocked their upload. Browser-native speech remains a capability-dependent fallback; local server credentials remain intact.
