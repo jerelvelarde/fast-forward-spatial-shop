@@ -8,6 +8,8 @@ Vite + TypeScript, Meta IWSDK 1.0.1, a Node API and AI SDK 7. The official start
 | --- | --- |
 | `src/desktop.ts` | Voice/typed search, accessible carousel, selected detail, photo/token dialog |
 | `src/webcam.ts` | Explicit camera session, late-permission cleanup, aspect-preserving JPEG capture capped at 2 MB |
+| `src/gestures.ts` | Landmark-to-action state machine: mirrored open-palm swipes and held pinch, with cooldown/rearming |
+| `src/hand-tracking.ts` / `.worker.ts` | On-device MediaPipe hand inference over the existing camera stream; worker lifecycle and frame backpressure |
 | `src/store.ts` | Shared search, selection and try-on state; stale request cancellation |
 | `src/shopping.ts` | Reactive UIKitML bindings, ray clicks and thumbstick navigation |
 | `src/assets.ts` | Pure manifest, reused by runtime and editor |
@@ -30,6 +32,10 @@ Both browser and XR subscribe to one in-memory store per tab. Search requests an
 GET `/api/config` reveals only whether generation is configured. POST `/api/try-on` accepts `{productId, query, photoDataUrl, accessToken}`. It requires a server key and private demo token, validates image type and 2 MB size, re-searches to verify current availability/budget, and fetches only that product's verified Shopify CDN image with redirects disabled. AI SDK sends both images to `google/gemini-3.1-flash-image` via AI Gateway. Output is an image data URL. Landscape output and instructions preserve person framing and scale the backpack to the torso. The app does not store photos or generation outputs on the server. No camera stream is sent to the backend and no body tracking is implemented.
 
 Laptop webcam preview begins only after an explicit click. Capture preserves aspect ratio, resizes to at most 1600 pixels on the long edge, and compresses to JPEG under the upload cap. The session releases tracks on capture, cancellation, source changes, hidden tabs, page exit, teardown, and IWSDK immersive entry. A version counter discards late permission and image encoding results. Webcam photos use the same store and generation endpoint as uploads.
+
+The desktop dialog renders `photoDataUrl` and `tryOnImage` separately as Before and After. The original remains visible while generation is pending or fails; selecting another product clears only its obsolete output. Live preview is mirrored for intuitive hand motion, while saved photos keep their original orientation.
+
+Hand tracking uses pinned MediaPipe Tasks Vision 1.1.0 with a locally served model. `forVisionTasks(path, true)` selects its ES-module WASM loader for the module worker. Frames are capped at 640 pixels on the long edge and 10 per second with one inference in flight. A 500 ms pinch selects once until release; swipes require sufficient horizontal motion and settle before rearming. Pinch confirmation pauses tracking without stopping the camera. Capture and all camera stop paths also terminate the worker. Gestures never trigger paid generation. Asset provenance is recorded in `public/hand-tracking/README.md`.
 
 ## Input and device scope
 

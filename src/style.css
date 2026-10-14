@@ -50,5 +50,26 @@ body.xr-active .trail-desktop{display:none}.trail-desktop.xr-hidden{display:none
 .webcam-controls .primary-button,.webcam-controls .secondary-button{flex:1;width:auto;margin:0;min-height:44px;justify-content:center;font-size:11px;padding:10px}
 .webcam-guidance{border-left:2px solid #d6f58b55;padding-left:9px}
 .tryon-dialog{max-height:calc(100dvh - 32px);overflow-y:auto}
+.tryon-dialog{max-width:1160px}
+.tryon-body{grid-template-columns:minmax(0,1.8fr) minmax(270px,1fr)}
+.tryon-visuals{min-width:0}
+.person-preview video{transform:scaleX(-1)}
+.photo-comparison{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.photo-comparison figure{margin:0;min-width:0}
+.photo-comparison figcaption{font-size:10px;letter-spacing:1.5px;color:var(--lime);margin-bottom:10px}
+.photo-comparison figcaption span{display:block;margin-top:4px;color:var(--muted);font-size:11px;letter-spacing:0}
+.comparison-image{height:370px;background:#101912;border:1px solid var(--line);border-radius:12px;position:relative;overflow:hidden;display:grid;place-items:center}
+.comparison-image img{width:100%;height:100%;object-fit:contain;position:absolute;inset:0}
+.comparison-image p{font-size:12px;color:var(--muted);padding:20px;text-align:center;line-height:1.6}
+.webcam-browser{margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#101b16}
+.webcam-product{display:flex;justify-content:center;align-items:center;gap:25px}
+.webcam-product img{width:85px;height:90px;object-fit:contain;border-radius:8px;background:#fff}
+#webcam-product-position{font-size:12px;line-height:1.5;text-align:center;margin:10px 0;color:#e0ebd7}
+#gesture-selection{font-size:11px;line-height:1.5;text-align:center;color:var(--lime);margin:8px 0}
+.gesture-guide{font-size:12px;line-height:1.8;margin:12px 0 8px;color:#cddfc2}
+.gesture-guide strong{color:var(--lime)}
+.hand-controls{border:1px solid #d6f58b44;border-radius:10px;padding:0 12px 8px;margin-top:12px;background:#d6f58b08}
+@media(min-width:701px){.tryon-visuals{align-self:start;position:sticky;top:0}}
+@media(max-width:700px){.tryon-body{grid-template-columns:1fr}.comparison-image{height:260px}.trail-header{gap:10px}.trail-header .vr-button{padding:9px 11px}.trail-header #webcam-mode{margin-left:auto}.person-preview{min-height:280px}}
 /* Phone browsing needs an opaque reading surface; immersive mode hides this. */
 @media(max-width:700px){.trail-desktop{background:#111b17}}

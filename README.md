@@ -21,6 +21,16 @@ Open http://localhost:5173. Search, select a pack, choose **Try it on**, then **
 
 On a laptop, choose **Use webcam**, allow camera access, frame your shoulders and torso, then **Capture photo**. You can retake it before generating. A front view shows straps; a rear or three-quarter view shows more of the bag. The preview stays local, and only the captured still is sent when you choose **Generate my try-on**. Capture, Stop camera, closing the dialog, hiding the tab, or entering VR turns the camera off. Webcam capture requires HTTPS or localhost; plain HTTP over a LAN will not work.
 
+### Webcam shopping and before/after
+
+After searching, choose **Webcam mode** in the header (or **Use webcam** in the try-on dialog). Hand controls load on your device:
+
+1. Show one open hand and swipe left to see the next backpack, or right for the previous one. Directions follow the mirrored live preview. Pause briefly between swipes.
+2. Hold your thumb and index finger together for half a second to select the displayed backpack. This pauses gestures while keeping the camera on for framing. **Resume hand controls** lets you browse again.
+3. Capture your photo, then generate. **Before** preserves the original still; **After** shows the AI result beside it. Changing the backpack clears the old After image. Captured photos are unmirrored even though the live preview acts like a mirror.
+
+Arrow buttons and **Select this backpack** are always available. Gesture recognition runs in a local Web Worker; camera frames are never sent to a gesture service. It requires a browser with Worker, ImageBitmap and OffscreenCanvas support. This is live gesture input plus still-image try-on, not continuous AI video. Gesture timing is covered by automated tests; physical webcam accuracy still needs testing in your lighting and browser.
+
 For the managed Meta desktop emulator:
 
 ```sh
@@ -47,6 +57,8 @@ npm run build
 ```
 
 The build retains desktop IWER emulation from the starter. Real webcam capture, headset readability, hand/controller comfort, and microphone behavior still need hardware testing. The integrated agent currently uses a bounded tool workflow with explicit budget parsing, not multi-turn LLM conversation. It uses Shop MCP for discovery; no checkout/UCP purchase flow is implemented.
+
+For the development-only browser regression harness, open `/tests/browser/webcam.html` on the dev server and choose **Run webcam regression**. It tests before/after state, camera capture/cleanup and actual MediaPipe worker inference with a synthetic stream and mocked API responses. It does not open your camera or make paid generation calls, and is excluded from the production build.
 
 ## The experience
 

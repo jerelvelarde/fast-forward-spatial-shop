@@ -75,7 +75,7 @@ export class WebcamCapture {
     canvas.height = Math.max(1, Math.round(this.video.videoHeight * scale));
     const context = canvas.getContext('2d');
     if (!context) { this.update('ready', 'Photo capture is unavailable. Stop the camera and upload a photo instead.'); return null; }
-    // The preview and saved image are both unmirrored; preserve the camera's aspect ratio.
+    // Save the raw frame, not the mirrored CSS preview, preserving its aspect ratio.
     try { context.drawImage(this.video, 0, 0, canvas.width, canvas.height); }
     catch { this.stop('The camera frame could not be read. Retake it or upload a photo.'); return null; }
     this.release();

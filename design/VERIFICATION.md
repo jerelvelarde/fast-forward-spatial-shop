@@ -17,7 +17,9 @@
 | Return to browser | xr exit preserved live results; `verify/final-desktop.png` |
 | Responsive reading | Browser checks at 1280×720 and 390×844; bounded desktop left-panel scroll and opaque phone reading surface |
 | Type safety | `npm run typecheck` includes frontend, backend, adapters, tests and Vite config |
-| Behavioral tests | `npm test`: 20 tests pass — budgets (including spoken numbers), currency/availability/category rejection, MCP failures, private-token guard, MIME/size limits, latest-search wins, old try-on discarded, no photo sent when unconfigured, and eight webcam lifecycle/capture cases |
+| Behavioral tests | `npm test`: 28 tests pass — catalog/store/server cases, eight webcam lifecycle/capture cases, and eight gesture cases including mirrored direction, jitter, cooldown, pinch hold/release, tracking loss and stale timestamps |
+| Before/after browser regression | `/tests/browser/webcam.html` verifies original/after image separation, product changes clearing old output, capture showing a new Before, and camera tracks ending after capture; synthetic frames and mocked API responses |
+| Actual hand model in browser | The same harness loads the real local model/WASM in a worker and processes synthetic video frames, yielding the expected no-hand result; no real camera opened |
 | Live AI integration | Local `/api/search` → `/api/try-on` with the supplied video frame and live Scout 55L Hiking Backpacks listing ($99.99 at test time) returned a generated image through AI Gateway |
 | Webcam lifecycle | Mocked media tests cover late permissions, superseded requests, playback failure, disconnect, warmup, resizing/size limits, error recovery and successful JPEG capture; real hardware was not opened |
 | Production build | `npm run build` succeeds; includes Trail and API request paths in frontend output |
@@ -32,7 +34,7 @@ UIKitML image-specific properties must be element attributes, and the SVG placeh
 
 ## Explicitly pending
 
-- Physical laptop webcam permission/capture/retake and browser-specific camera behavior. Automated media tests do not establish hardware compatibility.
+- Physical laptop webcam permission/capture/retake, swipe/pinch accuracy in real lighting, and browser-specific camera behavior. Synthetic media and landmark tests do not establish hardware accuracy.
 - Physical Quest controller/hand behavior, comfort, performance and microphone support. Desktop emulation is not hardware validation.
 - Actual speech recognition using a microphone. The browser path and typed fallback are implemented; no synthesized audio was substituted for a real speech test.
 - Vercel deployment and deployed API smoke test. Local middleware and function adapter are implemented.
@@ -43,3 +45,7 @@ Photos are not persisted by this app. The supplied demo frame is intentionally b
 ## Live image review
 
 Two authorized Gateway generations were run after local credentials were configured. The first oversized the backpack and obscured the head. Instructions were revised to preserve framing, retain the person's pose, keep the head visible, and scale the pack to the torso, with a 16:9 output setting. The second image visibly placed the selected pack on the back while retaining the person and scene. It remains an approximate appearance preview, not measured fit. The generated verification image is kept outside the public repository. Secrets remain in ignored `.env.local`.
+
+## Gesture integration review
+
+The first browser smoke test caught a MediaPipe module-worker initialization failure despite passing TypeScript and unit checks. The default resolver chose a classic WASM loader whose factory was not exposed after dynamic import. Selecting the package's ES-module loader fixed startup; the real inference/capture browser harness then passed all ten checks with no console errors. No additional paid AI call was needed to verify comparison state.

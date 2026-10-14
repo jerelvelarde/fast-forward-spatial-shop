@@ -1,6 +1,7 @@
 import { DEFAULT_QUERY, formatPrice, type Product } from './contracts.js';
 import { store, type StoreState } from './store.js';
 import { WebcamCapture, type WebcamState } from './webcam.js';
+import { HandTracking, type HandTrackingStatus } from './hand-tracking.js';
 import './style.css';
 
 interface Recognition extends EventTarget {
@@ -26,7 +27,7 @@ function node<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, 
 export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; exitVR: () => void }) {
   root.classList.add('trail-desktop');
   root.innerHTML = `
-    <header class="trail-header"><a href="#" class="trail-brand" aria-label="Trail home">${icons.mountain}<span>trail<span class="brand-dot">.</span></span></a><span class="header-caption">A NEW WAY TO FIND YOUR OUTSIDE</span><button class="vr-button" id="enter-vr">${icons.vr}<span>Enter VR</span></button></header>
+    <header class="trail-header"><a href="#" class="trail-brand" aria-label="Trail home">${icons.mountain}<span>trail<span class="brand-dot">.</span></span></a><span class="header-caption">A NEW WAY TO FIND YOUR OUTSIDE</span><button class="vr-button" id="webcam-mode" disabled>Webcam mode</button><button class="vr-button" id="enter-vr">${icons.vr}<span>Enter VR</span></button></header>
     <main class="trail-workspace"><section class="discovery-panel" aria-label="Find your backpack">
       <div class="eyebrow"><span class="live-dot"></span> SPATIAL SHOPPING / 001</div>
       <h1>Find your pack.<br><em>See it on you.</em></h1>
@@ -40,7 +41,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     </section><div class="scene-caption"><span class="scene-label">YOUR SPATIAL SHOWROOM</span><p>Point to a card. Make it yours.</p><span class="scene-help">Desktop preview · Enter VR for the full view</span></div></main>
     <section class="product-dock" aria-label="Backpack results"><div class="dock-top"><div><span class="eyebrow">CURATED BY YOUR INTENT</span><span id="result-count">Ready when you are</span></div><div class="carousel-controls"><span>Swipe to explore</span><button id="previous-product" class="icon-button" aria-label="Previous backpack">←</button><button id="next-product" class="icon-button" aria-label="Next backpack">→</button></div></div><div class="product-rail" tabindex="0" aria-label="Swipe backpack options"></div></section>
     <footer class="trail-footer"><span>BUILT FOR THE GREAT OUTDOORS.</span><span>Shopify catalog <b>×</b> Meta IWSDK</span></footer>
-    <dialog class="tryon-dialog"><div class="dialog-heading"><div><div class="eyebrow">03 / THE FINAL LOOK</div><h2>A little closer to the trail.</h2></div><button class="icon-button" id="close-tryon" aria-label="Close try-on">×</button></div><div class="tryon-body"><div class="person-preview"><video id="webcam-preview" autoplay muted playsinline aria-label="Live webcam preview" hidden></video><img id="person-image" alt="Your photo for the backpack try-on" hidden><div class="photo-placeholder">${icons.mountain}<span>Your adventure.<br>Your perspective.</span><p>Add a rear or three-quarter view photo<br>to see the backpack on you.</p></div><span class="preview-label">YOUR PHOTO</span></div><div class="tryon-options"><div class="eyebrow">SELECTED BACKPACK</div><h3 id="tryon-product"></h3><p id="tryon-price"></p><label class="upload-button" for="person-upload">Upload your photo <span>↑</span></label><input id="person-upload" type="file" accept="image/jpeg,image/png,image/webp" class="visually-hidden"><button class="secondary-button" id="use-webcam">Use webcam</button><div class="webcam-controls" hidden><button class="primary-button" id="capture-photo" disabled>Capture photo</button><button class="secondary-button" id="stop-webcam">Stop camera</button></div><p id="webcam-message" class="small-note" role="status" aria-live="polite"></p><p class="small-note webcam-guidance">A front view can show shoulder straps. A rear or three-quarter photo gives the best view of the backpack.</p><button class="secondary-button" id="demo-photo">Use the video frame</button><p class="small-note">JPEG, PNG or WebP · up to 2 MB<br>Your photo is sent to the image model only when you generate.</p><div class="setup-note" id="setup-note">Live try-on is ready to connect.<br><span>Add <code>AI_GATEWAY_API_KEY</code> and a private <code>TRY_ON_ACCESS_TOKEN</code> to the server environment to enable generation.</span></div><label class="token-field" hidden>Demo access token<input type="password" id="access-token" autocomplete="off" placeholder="Private demo token"></label><button id="generate-tryon" class="primary-button">Generate my try-on <span>✧</span></button><p id="tryon-message" class="small-note" role="status" aria-live="polite"></p></div></div></dialog>`;
+    <dialog class="tryon-dialog"><div class="dialog-heading"><div><div class="eyebrow">03 / THE FINAL LOOK</div><h2>A little closer to the trail.</h2></div><button class="icon-button" id="close-tryon" aria-label="Close try-on">×</button></div><div class="tryon-body"><div class="tryon-visuals"><div class="person-preview"><video id="webcam-preview" autoplay muted playsinline aria-label="Live webcam preview" hidden></video><div class="photo-placeholder">${icons.mountain}<span>Your adventure.<br>Your perspective.</span><p>Add a rear or three-quarter view photo<br>to see the backpack on you.</p></div><span class="preview-label">LIVE CAMERA · MIRRORED PREVIEW</span></div><section class="photo-comparison" aria-label="Before and after try-on" hidden><figure><figcaption>BEFORE <span>Your original photo</span></figcaption><div class="comparison-image"><img id="before-image" alt="Before: your original captured photo"></div></figure><figure><figcaption>AFTER <span>AI backpack preview</span></figcaption><div class="comparison-image"><img id="after-image" alt="After: the selected backpack on your photo" hidden><p id="after-placeholder">Generate your try-on to compare.</p></div></figure></section><div class="webcam-browser" aria-label="Browse backpacks with gestures"><div class="webcam-product"><button class="icon-button" id="webcam-previous" aria-label="Previous webcam backpack">←</button><img id="webcam-product-image" alt=""><button class="icon-button" id="webcam-next" aria-label="Next webcam backpack">→</button></div><p id="webcam-product-position"></p><p id="gesture-selection" role="status"></p><button class="secondary-button" id="confirm-backpack">Select this backpack</button></div></div><div class="tryon-options"><div class="eyebrow">SELECTED BACKPACK</div><h3 id="tryon-product"></h3><p id="tryon-price"></p><label class="upload-button" for="person-upload">Upload your photo <span>↑</span></label><input id="person-upload" type="file" accept="image/jpeg,image/png,image/webp" class="visually-hidden"><button class="secondary-button" id="use-webcam">Use webcam</button><div class="webcam-controls" hidden><button class="primary-button" id="capture-photo" disabled>Capture photo</button><button class="secondary-button" id="stop-webcam">Stop camera</button></div><p id="webcam-message" class="small-note" role="status" aria-live="polite"></p><section class="hand-controls" hidden><p class="gesture-guide"><strong>Browse with your hand</strong><br>Open palm: swipe left / right.<br>Pinch thumb + index for half a second to select.</p><p id="hand-status" class="small-note" role="status" aria-live="polite"></p><button id="toggle-hands" class="secondary-button">Pause hand controls</button><p class="small-note">Hand tracking stays on this device. Selecting pauses gestures so you can frame and capture your photo.</p></section><p class="small-note webcam-guidance">A front view can show shoulder straps. A rear or three-quarter photo gives the best view of the backpack.</p><button class="secondary-button" id="demo-photo">Use the video frame</button><p class="small-note">JPEG, PNG or WebP · up to 2 MB<br>Your photo is sent to the image model only when you generate.</p><div class="setup-note" id="setup-note">Live try-on is ready to connect.<br><span>Add <code>AI_GATEWAY_API_KEY</code> and a private <code>TRY_ON_ACCESS_TOKEN</code> to the server environment to enable generation.</span></div><label class="token-field" hidden>Demo access token<input type="password" id="access-token" autocomplete="off" placeholder="Private demo token"></label><button id="generate-tryon" class="primary-button">Generate my try-on <span>✧</span></button><p id="tryon-message" class="small-note" role="status" aria-live="polite"></p></div></div></dialog>`;
   const get = <T extends HTMLElement>(selector: string) => root.querySelector<T>(selector)!;
   const query = get<HTMLTextAreaElement>('#search-query'); query.value = DEFAULT_QUERY;
   const rail = get<HTMLDivElement>('.product-rail');
@@ -50,13 +51,54 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
   let mounted = true;
   let lastProducts: Product[] | null = null;
   let lastSelected: string | null = null;
-  let lastImage: string | null = null;
+  let lastBefore: string | null = null;
+  let lastAfter: string | null = null;
+  let lastProductImage: string | null = null;
   let photoVersion = 0;
   let webcamState: WebcamState = { phase: 'idle', message: '' };
   let webcamPhoto = false;
   const video = get<HTMLVideoElement>('#webcam-preview');
-  const webcam = new WebcamCapture(video, state => { webcamState = state; if (mounted) render(store.getState()); });
-  const stopWebcam = () => { photoVersion++; webcam.stop(); };
+  let handStatus: HandTrackingStatus = { phase: 'stopped', message: '' };
+  let gestureSelection: string | null = null;
+  const hands = new HandTracking(video, action => {
+    const state = store.getState();
+    if (!dialog.open || state.status !== 'ready' || webcamState.phase !== 'ready') return;
+    if (action === 'select') confirmBackpack();
+    else { gestureSelection = null; store.move(action === 'next' ? 1 : -1); }
+  }, status => { handStatus = status; if (mounted) renderHands(); });
+  const webcam = new WebcamCapture(video, state => {
+    webcamState = state;
+    if (state.phase !== 'ready' && state.phase !== 'requesting') hands.stop();
+    if (mounted) render(store.getState());
+  });
+  const stopWebcam = () => { photoVersion++; hands.stop(); webcam.stop(); };
+  function confirmBackpack() {
+    const state = store.getState();
+    if (!state.selectedId || state.status !== 'ready') return;
+    gestureSelection = state.selectedId;
+    hands.stop();
+    render(state);
+  }
+  function renderHands() {
+    const running = ['loading', 'ready', 'tracking'].includes(handStatus.phase);
+    get('.hand-controls').hidden = webcamState.phase !== 'ready';
+    get('#hand-status').textContent = handStatus.message;
+    get<HTMLButtonElement>('#toggle-hands').textContent = running ? 'Pause hand controls' : 'Resume hand controls';
+    const confirmed = gestureSelection !== null && gestureSelection === store.getState().selectedId;
+    get('#gesture-selection').textContent = confirmed ? 'Selected. Frame your photo, then capture.'
+      : webcamState.phase === 'ready' && running ? 'Swipe to explore. Pinch to select this backpack.'
+      : 'Use arrows to browse. Enable webcam hand controls to swipe and pinch.';
+  }
+  async function startWebcam() {
+    photoVersion++;
+    gestureSelection = null;
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      webcamState = { phase: 'error', message: !window.isSecureContext ? 'Camera access needs HTTPS or localhost. Open the secure app URL or upload a photo.' : 'Camera capture is unavailable in this browser. Upload a photo instead.' };
+      render(store.getState()); return;
+    }
+    await webcam.start();
+    if (mounted && dialog.open && webcamState.phase === 'ready') void hands.start();
+  }
   const openPhoto = () => { if (!dialog.open) dialog.showModal(); };
   get<HTMLButtonElement>('#enter-vr').onclick = () => { stopWebcam(); actions.enterVR(); };
   get<HTMLFormElement>('.search-form').onsubmit = event => { event.preventDefault(); void store.search(query.value); };
@@ -74,13 +116,14 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
   const onVisibilityChange = () => { if (document.hidden) stopWebcam(); };
   document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('pagehide', stopWebcam);
-  get<HTMLButtonElement>('#use-webcam').onclick = () => {
-    photoVersion++;
-    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-      webcamState = { phase: 'error', message: !window.isSecureContext ? 'Camera access needs HTTPS or localhost. Open the secure app URL or upload a photo.' : 'Camera capture is unavailable in this browser. Upload a photo instead.' };
-      render(store.getState()); return;
-    }
-    void webcam.start();
+  get<HTMLButtonElement>('#use-webcam').onclick = () => { void startWebcam(); };
+  get<HTMLButtonElement>('#webcam-mode').onclick = () => { openPhoto(); void startWebcam(); };
+  get<HTMLButtonElement>('#webcam-previous').onclick = () => { gestureSelection = null; store.move(-1); };
+  get<HTMLButtonElement>('#webcam-next').onclick = () => { gestureSelection = null; store.move(1); };
+  get<HTMLButtonElement>('#confirm-backpack').onclick = confirmBackpack;
+  get<HTMLButtonElement>('#toggle-hands').onclick = () => {
+    if (['loading', 'ready', 'tracking'].includes(handStatus.phase)) hands.stop();
+    else if (webcamState.phase === 'ready') { gestureSelection = null; render(store.getState()); void hands.start(); }
   };
   get<HTMLButtonElement>('#stop-webcam').onclick = stopWebcam;
   get<HTMLButtonElement>('#capture-photo').onclick = async () => {
@@ -161,6 +204,19 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
       get<HTMLAnchorElement>('#shop-link').href = selected.url;
       get('#tryon-product').textContent = selected.title; get('#tryon-price').textContent = `${formatPrice(selected.price)} · ${selected.seller}`;
     }
+    get<HTMLButtonElement>('#webcam-mode').disabled = !selected;
+    get('.webcam-browser').hidden = !selected;
+    get<HTMLButtonElement>('#webcam-previous').disabled = state.products.length < 2;
+    get<HTMLButtonElement>('#webcam-next').disabled = state.products.length < 2;
+    if (selected) {
+      const productImage = get<HTMLImageElement>('#webcam-product-image');
+      if (lastProductImage !== selected.imageUrl) { productImage.src = selected.imageUrl; lastProductImage = selected.imageUrl; }
+      productImage.alt = selected.title;
+      get('#webcam-product-position').textContent = `${state.products.findIndex(p => p.id === selected.id) + 1} / ${state.products.length} · ${selected.title} · ${formatPrice(selected.price)}`;
+      const confirmed = gestureSelection === selected.id;
+      get<HTMLButtonElement>('#confirm-backpack').disabled = confirmed;
+      get<HTMLButtonElement>('#confirm-backpack').textContent = confirmed ? 'Backpack selected ✓' : 'Select this backpack';
+    }
     get('#setup-note').hidden = state.tryOnEnabled;
     get('.token-field').hidden = !state.accessTokenRequired;
     const cameraActive = webcamState.phase === 'requesting' || webcamState.phase === 'ready';
@@ -177,12 +233,19 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     generate.disabled = cameraBusy || !selected || !state.photoDataUrl || !state.tryOnEnabled || state.tryOnStatus === 'generating';
     generate.firstChild!.textContent = state.tryOnStatus === 'generating' ? 'Creating your preview… ' : 'Generate my try-on ';
     get('#tryon-message').textContent = state.tryOnMessage;
-    const photo = state.tryOnImage ?? state.photoDataUrl;
-    const img = get<HTMLImageElement>('#person-image');
-    if (photo !== lastImage) { if (photo) img.src = photo; else img.removeAttribute('src'); lastImage = photo; }
-    img.hidden = cameraActive || !photo; get('.photo-placeholder').hidden = cameraActive || !!photo;
-    get('.preview-label').textContent = cameraActive ? 'LIVE CAMERA · NOT YET CAPTURED' : state.tryOnImage ? 'AI TRY-ON · GENERATED PREVIEW' : 'YOUR PHOTO';
-    get('.person-preview').classList.toggle('generating', !cameraActive && state.tryOnStatus === 'generating');
+    const before = get<HTMLImageElement>('#before-image');
+    const after = get<HTMLImageElement>('#after-image');
+    if (state.photoDataUrl !== lastBefore) { if (state.photoDataUrl) before.src = state.photoDataUrl; else before.removeAttribute('src'); lastBefore = state.photoDataUrl; }
+    if (state.tryOnImage !== lastAfter) { if (state.tryOnImage) after.src = state.tryOnImage; else after.removeAttribute('src'); lastAfter = state.tryOnImage; }
+    get('.person-preview').hidden = !cameraActive && !!state.photoDataUrl;
+    get('.photo-placeholder').hidden = cameraActive;
+    get('.preview-label').hidden = !cameraActive;
+    get('.photo-comparison').hidden = cameraActive || !state.photoDataUrl;
+    after.hidden = !state.tryOnImage;
+    get('#after-placeholder').hidden = !!state.tryOnImage;
+    get('#after-placeholder').textContent = state.tryOnStatus === 'generating' ? 'Creating your backpack preview…' : state.tryOnStatus === 'error' ? 'Preview unavailable. Try generating again.' : 'Generate your try-on to compare.';
+    after.parentElement!.classList.toggle('generating', state.tryOnStatus === 'generating');
+    renderHands();
   }
   const unsubscribe = store.subscribe(render);
   void store.configure();

@@ -10,3 +10,4 @@ build/
 coverage/
 .iwsdk/
 *.log
+public/hand-tracking/wasm/

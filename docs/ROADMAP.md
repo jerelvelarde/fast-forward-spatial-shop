@@ -11,6 +11,8 @@
 - [x] Shared state with stale search and generation protection.
 - [x] Photo upload and supplied video-frame option.
 - [x] Laptop webcam preview, capture/retake, compression, and camera lifecycle cleanup.
+- [x] Before/after photo comparison with the original preserved during generation.
+- [x] Local webcam hand tracking: open-palm swipe to browse and held pinch to select.
 - [x] Server-side AI Gateway image integration and explicit missing-configuration state.
 - [x] Private paid-generation token guard and image/request size checks.
 - [x] Local run, test, build and Vercel configuration.
@@ -19,7 +21,7 @@
 
 - [x] Configure AI_GATEWAY_API_KEY and TRY_ON_ACCESS_TOKEN locally (deployment needs separate setup).
 - [x] Generate and visually assess a real selected-pack try-on.
-- [ ] Test camera permissions, capture and retake using a physical laptop webcam.
+- [ ] Test camera permissions, capture/retake, and swipe/pinch accuracy using a physical laptop webcam in venue lighting.
 - [ ] Deploy to Vercel and test the deployed API routes.
 - [ ] Verify on a physical Quest: readability, comfort, input, image loading, voice support.
 - [ ] Confirm event device access, casting and submission requirements with Meta/event team.
