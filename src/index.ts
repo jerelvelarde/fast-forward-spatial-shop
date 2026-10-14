@@ -17,6 +17,7 @@
 import { World, VisibilityState, SessionMode } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
 import { ShoppingSystem } from './shopping.js';
+import { ModelPlacementSystem } from './model-placement.js';
 import { mountDesktop } from './desktop.js';
 import './style.css';
 
@@ -25,6 +26,7 @@ World.create(
   projectOptions,
 ).then((world) => {
   world.registerSystem(ShoppingSystem);
+  world.registerSystem(ModelPlacementSystem);
   const desktop = document.getElementById('desktop')!;
   mountDesktop(desktop, {
     enterVR: () => { world.launchXR({ sessionMode: SessionMode.ImmersiveVR }); },

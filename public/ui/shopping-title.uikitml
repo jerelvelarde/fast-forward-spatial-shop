@@ -7,4 +7,4 @@
  .title { font-size: 7; font-weight: bold; }
  .status { font-size: 2.8; color: #adbbae; text-align: center; }
 </style>
-<div class="root"><div class="brand">T R A I L  /  SPATIAL SHOPPING</div><div class="title">Your next adventure, in view.</div><div id="status" class="status">Camping backpacks. Under $150. Chosen by you.</div></div>
+<div class="root"><div class="brand">T R A I L  /  SPATIAL SHOPPING</div><div class="title">Your next find, in view.</div><div id="status" class="status">Live Shopify products. Chosen by you.</div></div>

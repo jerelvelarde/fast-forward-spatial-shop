@@ -10,15 +10,16 @@ export interface ToolStep {
 export type ToolHandlers = Record<ToolName, (signal: AbortSignal) => Promise<void>>;
 
 const picture = /^(?:take|snap|capture)(?: (?:a|the|my|one))? (?:photo|picture|snapshot)(?: of me)?(?: (?:with|using) (?:my|the) (?:webcam|camera))?$/;
-const selectedProduct = '(?:it|this|that|(?:the|this|that|my|selected) (?:backpack|bag|pack))';
-const tryOn = new RegExp(`^(?:try ${selectedProduct} on|try on ${selectedProduct}|(?:generate|create|make)(?: (?:a|my|the))? try on(?: (?:preview|image))?|show me wearing ${selectedProduct}|put ${selectedProduct} on me)$`);
+const selectedProduct = '(?:it|this|that|(?:the|this|that|my|selected) [a-z]+(?: [a-z]+){0,2})';
+const tryOn = new RegExp(`^(?:try ${selectedProduct} on|try on ${selectedProduct}|(?:generate|create|make)(?: (?:a|my|the))? (?:try on|photo preview)(?: (?:preview|image))?|show me wearing ${selectedProduct}|put ${selectedProduct} on me|preview ${selectedProduct}(?: with my photo)?)$`);
 
 /** A deliberately narrow local router. Anything else remains a normal search request. */
 export function parseToolCommand(text: string): ToolName[] | null {
   let command = text.trim().toLowerCase().replace(/[’‘]/g, "'").replace(/[-–—]/g, ' ').replace(/\s+/g, ' ');
   if (!command || /\b(?:don't|dont|do not|not|never|no|stop|cancel)\b/.test(command)) return null;
   command = command.replace(/[.!?]+$/, '').replace(/^(?:(?:please|can you|could you|would you|will you)[, ]+){1,3}/, '').replace(/[, ]+please$/, '');
-  if (/^(?:(?:i want to )?buy (?:it|this|that|(?:the|this|that|selected) (?:backpack|bag|pack))|(?:proceed to |start |prepare |go to |open )?check ?out|purchase (?:it|this|that|the backpack))$/.test(command)) return ['prepare_checkout', 'show_checkout'];
+  if (/\b(?:tomorrow|later|eventually|next week)\b/.test(command)) return null;
+  if (new RegExp(`^(?:(?:i want to )?buy ${selectedProduct}|(?:proceed to |start |prepare |go to |open )?check ?out|purchase ${selectedProduct})$`).test(command)) return ['prepare_checkout', 'show_checkout'];
   if (picture.test(command)) return ['take_picture'];
   if (tryOn.test(command)) return ['generate_try_on', 'show_try_on'];
   const steps = command.split(/(?:,? and then |,? and |,? then |, )/);
@@ -28,9 +29,9 @@ export function parseToolCommand(text: string): ToolName[] | null {
 
 const messages: Record<ToolName, Record<ToolStep['status'], string>> = {
   prepare_checkout: { running: 'Preparing your checkout…', done: 'Your merchant checkout is ready.', error: 'Checkout could not be prepared. Review the checkout message and retry.' },
-  show_checkout: { running: 'Opening checkout review…', done: 'Review your backpack, then continue to the merchant to pay.', error: 'Checkout review could not open. Exit VR and try again.' },
+  show_checkout: { running: 'Opening checkout review…', done: 'Review your product, then continue to the merchant to pay.', error: 'Checkout review could not open. Exit VR and try again.' },
   take_picture: { running: 'Taking your picture…', done: 'Your picture is ready.', error: 'The picture could not be taken. Check the camera and try again.' },
-  generate_try_on: { running: 'Generating your backpack try-on…', done: 'Your try-on is ready.', error: 'The try-on could not be generated. Check your photo and selected backpack, then try again.' },
+  generate_try_on: { running: 'Generating your product photo preview…', done: 'Your preview is ready.', error: 'The preview could not be generated. Check your photo and selected product, then try again.' },
   show_try_on: { running: 'Opening your try-on…', done: 'Showing your before and after.', error: 'The try-on could not be shown. Please try again.' },
 };
 

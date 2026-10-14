@@ -1,4 +1,4 @@
-import { DEFAULT_QUERY, formatPrice, type Product } from './contracts.js';
+import { DEFAULT_QUERY, PREPARED_VARIANT_ID, formatPrice, type Product } from './contracts.js';
 import { store, type StoreState } from './store.js';
 import { WebcamCapture, type WebcamState } from './webcam.js';
 import { HandTracking, type HandTrackingStatus } from './hand-tracking.js';
@@ -30,7 +30,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
   root.classList.add('trail-desktop');
   root.innerHTML = `
     <header class="trail-header"><a href="#" class="trail-brand" aria-label="Trail home">${icons.mountain}<span>trail<span class="brand-dot">.</span></span></a><span class="header-caption">Your picks</span><button class="vr-button" id="webcam-mode" disabled>Webcam mode</button><button class="vr-button" id="enter-ar" hidden>Enter Quest AR</button><button class="vr-button" id="enter-vr">${icons.vr}<span>Enter VR</span></button></header>
-    <main class="trail-workspace"><section class="discovery-panel" aria-label="Find your backpack">
+    <main class="trail-workspace"><section class="discovery-panel" aria-label="Find products">
       <h1>What are you looking for?</h1>
       <form class="search-form"><label for="search-query" class="visually-hidden">Ask Trail</label><div class="search-field"><textarea id="search-query" rows="2" maxlength="500" spellcheck="false" placeholder="Find a camping backpack under $150…"></textarea><button type="button" id="voice-button" class="icon-button" aria-label="Search by voice">${icons.mic}</button></div><button type="submit" class="primary-button" id="search-button"><span>Search</span>${icons.arrow}</button></form>
       <p id="voice-message" class="small-note"></p>
@@ -38,9 +38,9 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
 
       <p id="assistant-message" class="small-note" role="status" aria-live="polite"></p><ol class="tool-progress" aria-label="Assistant actions" hidden></ol>
     </section></main>
-    <section class="product-dock" aria-label="Backpack results"><div class="dock-top"><div><span class="eyebrow">FOUND FOR YOU</span><span id="result-count">Ready when you are</span></div><div class="carousel-controls"><span>Browse picks</span><button id="previous-product" class="icon-button" aria-label="Previous backpack">←</button><button id="next-product" class="icon-button" aria-label="Next backpack">→</button></div></div><div class="results-layout"><div class="product-rail" tabindex="0" aria-label="Backpack cards"></div><section class="selected-detail" hidden><div class="eyebrow">YOUR PICK</div><h2 id="selected-title"></h2><p class="selected-meta"><span id="selected-price"></span><span id="selected-seller"></span></p><p id="selected-description"></p><div class="selected-actions"><button id="open-tryon" class="primary-button">Try it on <span>↗</span></button><button id="buy-selected" class="secondary-button">Buy this backpack</button><a id="shop-link" class="text-link" target="_blank" rel="noopener noreferrer">View at store ↗</a></div></section></div></section>
+    <section class="product-dock" aria-label="Product results"><div class="dock-top"><div><span class="eyebrow">FOUND FOR YOU</span><span id="result-count">Ready when you are</span></div><div class="carousel-controls"><span>Browse picks</span><button id="previous-product" class="icon-button" aria-label="Previous product">←</button><button id="next-product" class="icon-button" aria-label="Next product">→</button></div></div><div class="results-layout"><div class="product-rail" tabindex="0" aria-label="Product cards"></div><section class="selected-detail" hidden><div class="eyebrow">YOUR PICK</div><h2 id="selected-title"></h2><p class="selected-meta"><span id="selected-price"></span><span id="selected-seller"></span></p><p id="selected-description"></p><div class="selected-actions"><button id="open-tryon" class="primary-button">Try it on <span>↗</span></button><button id="buy-selected" class="secondary-button">Buy selected</button><a id="shop-link" class="text-link" target="_blank" rel="noopener noreferrer">View at store ↗</a></div><div id="model-controls" hidden><label class="token-field">Private demo token<input type="password" id="model-token" autocomplete="off" placeholder="Private demo token"></label><button id="generate-model" class="secondary-button">Generate 3D product</button><p id="model-message" class="small-note" role="status" aria-live="polite"></p></div></section></div></section>
 
-    <dialog class="tryon-dialog"><div class="dialog-heading"><div><div class="eyebrow">YOUR TRY-ON</div><h2 id="dialog-title">See it on you.</h2></div><button class="icon-button" id="close-tryon" aria-label="Close try-on">×</button></div><section class="checkout-review" aria-label="Checkout review" hidden><div class="checkout-item"><img id="checkout-image" alt="Selected backpack"><div><span class="eyebrow">YOUR BACKPACK · QUANTITY 1</span><h3 id="checkout-title"></h3><p id="checkout-seller"></p><strong id="checkout-price"></strong></div></div><p id="checkout-message" role="status" aria-live="polite"></p><dl id="checkout-totals"></dl><p class="small-note">Shipping, taxes and the final amount are confirmed by the merchant. Payment is completed on their checkout page.</p><ol class="tool-progress" aria-label="Checkout actions" hidden></ol><p id="checkout-voice-message" class="small-note" role="status"></p><div class="checkout-actions"><a id="checkout-continue" class="primary-button" target="_blank" rel="noopener noreferrer" hidden>Review and pay at merchant ↗</a><button id="checkout-retry" class="secondary-button">Prepare checkout</button><button id="checkout-voice" class="secondary-button">Speak a command</button><button id="checkout-cancel" class="secondary-button" hidden>Cancel action</button><button id="checkout-back" class="text-link">Keep browsing</button></div></section><div class="tryon-body"><div class="tryon-visuals"><div class="person-preview"><video id="webcam-preview" autoplay muted playsinline aria-label="Live webcam preview" hidden></video><div class="photo-placeholder">${icons.mountain}<span>Your adventure.<br>Your perspective.</span><p>Add a rear or three-quarter view photo<br>to see the backpack on you.</p></div><span class="preview-label">LIVE CAMERA · MIRRORED PREVIEW</span><section class="webcam-ar" aria-label="AR shopping space" hidden><div class="ar-heading"><span class="ar-live-dot"></span><span>YOUR SPACE. YOUR PICKS.</span><span id="ar-result-position"></span></div><div class="webcam-ar-products" aria-label="Floating backpack cards"></div><div class="ar-toolbar"><button type="button" id="ar-previous" class="icon-button" aria-label="Previous AR backpack">←</button><div><p id="ar-gesture-hint" role="status">Swipe to browse · Pinch to select</p><button type="button" id="ar-confirm-backpack">Select this backpack</button><button type="button" id="ar-buy-backpack">Buy this backpack ↗</button></div><button type="button" id="ar-next" class="icon-button" aria-label="Next AR backpack">→</button></div></section><span id="capture-countdown" hidden></span></div><section class="photo-comparison" aria-label="Before and after try-on" hidden><figure><figcaption>BEFORE <span>Your original photo</span></figcaption><div class="comparison-image"><img id="before-image" alt="Before: your original captured photo"></div></figure><figure><figcaption>AFTER <span>AI backpack preview</span></figcaption><div class="comparison-image"><img id="after-image" alt="After: the selected backpack on your photo" hidden><p id="after-placeholder">Generate your try-on to compare.</p></div></figure></section><div class="webcam-browser" aria-label="Browse backpacks with gestures"><div class="webcam-product"><button class="icon-button" id="webcam-previous" aria-label="Previous webcam backpack">←</button><img id="webcam-product-image" alt=""><button class="icon-button" id="webcam-next" aria-label="Next webcam backpack">→</button></div><p id="webcam-product-position"></p><p id="gesture-selection" role="status"></p><button class="secondary-button" id="confirm-backpack">Select this backpack</button></div></div><div class="tryon-options"><form id="dialog-command-form" class="action-composer"><label for="dialog-command">Ask for the next step</label><div class="action-input"><input id="dialog-command" maxlength="250" placeholder="Take a picture and try it on"><button type="button" id="dialog-voice" class="icon-button" aria-label="Speak a camera or try-on command">${icons.mic}</button><button type="submit" class="icon-button" aria-label="Run command">${icons.arrow}</button></div></form><p id="dialog-voice-message" class="small-note" role="status"></p><p id="dialog-assistant-message" class="small-note" role="status" aria-live="polite"></p><ol class="tool-progress" aria-label="Assistant actions" hidden></ol><button id="cancel-tools" class="secondary-button" hidden>Cancel action</button><button id="buy-from-tryon" class="secondary-button">Buy this backpack ↗</button><div class="eyebrow">SELECTED BACKPACK</div><h3 id="tryon-product"></h3><p id="tryon-price"></p><label class="upload-button" for="person-upload">Upload your photo <span>↑</span></label><input id="person-upload" type="file" accept="image/jpeg,image/png,image/webp" class="visually-hidden"><button class="secondary-button" id="use-webcam">Use webcam</button><div class="webcam-controls" hidden><button class="primary-button" id="capture-photo" disabled>Capture photo</button><button class="secondary-button" id="stop-webcam">Stop camera</button></div><p id="webcam-message" class="small-note" role="status" aria-live="polite"></p><section class="hand-controls" hidden><p class="gesture-guide"><strong>Browse with your hand</strong><br>Open palm: swipe left / right.<br>Pinch thumb + index for half a second to select.</p><p id="hand-status" class="small-note" role="status" aria-live="polite"></p><button id="toggle-hands" class="secondary-button">Pause hand controls</button><p class="small-note">Hand tracking stays on this device. Selecting pauses gestures so you can frame and capture your photo.</p></section><p class="small-note webcam-guidance">A front view can show shoulder straps. A rear or three-quarter photo gives the best view of the backpack.</p><button class="secondary-button" id="demo-photo">Use the video frame</button><p class="small-note">JPEG, PNG or WebP · up to 2 MB<br>Your photo is sent to the image model only when you generate.</p><div class="setup-note" id="setup-note">Live try-on is ready to connect.<br><span>Add <code>AI_GATEWAY_API_KEY</code> and a private <code>TRY_ON_ACCESS_TOKEN</code> to the server environment to enable generation.</span></div><label class="token-field" hidden>Demo access token<input type="password" id="access-token" autocomplete="off" placeholder="Private demo token"></label><button id="generate-tryon" class="primary-button">Generate my try-on <span>✧</span></button><p id="tryon-message" class="small-note" role="status" aria-live="polite"></p></div></div></dialog>`;
+    <dialog class="tryon-dialog"><div class="dialog-heading"><div><div class="eyebrow">YOUR TRY-ON</div><h2 id="dialog-title">See it on you.</h2></div><button class="icon-button" id="close-tryon" aria-label="Close try-on">×</button></div><section class="checkout-review" aria-label="Checkout review" hidden><div class="checkout-item"><img id="checkout-image" alt="Selected product"><div><span class="eyebrow">YOUR ITEM · QUANTITY 1</span><h3 id="checkout-title"></h3><p id="checkout-seller"></p><strong id="checkout-price"></strong></div></div><p id="checkout-message" role="status" aria-live="polite"></p><dl id="checkout-totals"></dl><p class="small-note">Shipping, taxes and the final amount are confirmed by the merchant. Payment is completed on their checkout page.</p><ol class="tool-progress" aria-label="Checkout actions" hidden></ol><p id="checkout-voice-message" class="small-note" role="status"></p><div class="checkout-actions"><a id="checkout-continue" class="primary-button" target="_blank" rel="noopener noreferrer" hidden>Review and pay at merchant ↗</a><button id="checkout-retry" class="secondary-button">Prepare checkout</button><button id="checkout-voice" class="secondary-button">Speak a command</button><button id="checkout-cancel" class="secondary-button" hidden>Cancel action</button><button id="checkout-back" class="text-link">Keep browsing</button></div></section><div class="tryon-body"><div class="tryon-visuals"><div class="person-preview"><video id="webcam-preview" autoplay muted playsinline aria-label="Live webcam preview" hidden></video><div class="photo-placeholder">${icons.mountain}<span>Your adventure.<br>Your perspective.</span><p>Add a photo to see your selected product<br>in an AI preview.</p></div><span class="preview-label">LIVE CAMERA · MIRRORED PREVIEW</span><section class="webcam-ar" aria-label="AR shopping space" hidden><div class="ar-heading"><span class="ar-live-dot"></span><span>YOUR SPACE. YOUR PICKS.</span><span id="ar-result-position"></span></div><div class="webcam-ar-products" aria-label="Floating product cards"></div><div class="ar-toolbar"><button type="button" id="ar-previous" class="icon-button" aria-label="Previous AR product">←</button><div><p id="ar-gesture-hint" role="status">Swipe to browse · Pinch to select</p><button type="button" id="ar-confirm-backpack">Select this product</button><button type="button" id="ar-buy-backpack">Buy selected ↗</button></div><button type="button" id="ar-next" class="icon-button" aria-label="Next AR product">→</button></div></section><span id="capture-countdown" hidden></span></div><section class="photo-comparison" aria-label="Before and after try-on" hidden><figure><figcaption>BEFORE <span>Your original photo</span></figcaption><div class="comparison-image"><img id="before-image" alt="Before: your original captured photo"></div></figure><figure><figcaption>AFTER <span>AI product preview</span></figcaption><div class="comparison-image"><img id="after-image" alt="After: the selected product in your photo" hidden><p id="after-placeholder">Generate your try-on to compare.</p></div></figure></section><div class="webcam-browser" aria-label="Browse products with gestures"><div class="webcam-product"><button class="icon-button" id="webcam-previous" aria-label="Previous webcam product">←</button><img id="webcam-product-image" alt=""><button class="icon-button" id="webcam-next" aria-label="Next webcam product">→</button></div><p id="webcam-product-position"></p><p id="gesture-selection" role="status"></p><button class="secondary-button" id="confirm-backpack">Select this product</button></div></div><div class="tryon-options"><form id="dialog-command-form" class="action-composer"><label for="dialog-command">Ask for the next step</label><div class="action-input"><input id="dialog-command" maxlength="250" placeholder="Take a picture and try it on"><button type="button" id="dialog-voice" class="icon-button" aria-label="Speak a camera or try-on command">${icons.mic}</button><button type="submit" class="icon-button" aria-label="Run command">${icons.arrow}</button></div></form><p id="dialog-voice-message" class="small-note" role="status"></p><p id="dialog-assistant-message" class="small-note" role="status" aria-live="polite"></p><ol class="tool-progress" aria-label="Assistant actions" hidden></ol><button id="cancel-tools" class="secondary-button" hidden>Cancel action</button><button id="buy-from-tryon" class="secondary-button">Buy selected ↗</button><div class="eyebrow">SELECTED PRODUCT</div><h3 id="tryon-product"></h3><p id="tryon-price"></p><label class="upload-button" for="person-upload">Upload your photo <span>↑</span></label><input id="person-upload" type="file" accept="image/jpeg,image/png,image/webp" class="visually-hidden"><button class="secondary-button" id="use-webcam">Use webcam</button><div class="webcam-controls" hidden><button class="primary-button" id="capture-photo" disabled>Capture photo</button><button class="secondary-button" id="stop-webcam">Stop camera</button></div><p id="webcam-message" class="small-note" role="status" aria-live="polite"></p><section class="hand-controls" hidden><p class="gesture-guide"><strong>Browse with your hand</strong><br>Open palm: swipe left / right.<br>Pinch thumb + index for half a second to select.</p><p id="hand-status" class="small-note" role="status" aria-live="polite"></p><button id="toggle-hands" class="secondary-button">Pause hand controls</button><p class="small-note">Hand tracking stays on this device. Selecting pauses gestures so you can frame and capture your photo.</p></section><p class="small-note webcam-guidance">Use a clear photo with room around you for the best preview.</p><button class="secondary-button" id="demo-photo">Use the video frame</button><p class="small-note">JPEG, PNG or WebP · up to 2 MB<br>Your photo is sent to the image model only when you generate.</p><div class="setup-note" id="setup-note">Live try-on is ready to connect.<br><span>Add <code>AI_GATEWAY_API_KEY</code> and a private <code>TRY_ON_ACCESS_TOKEN</code> to the server environment to enable generation.</span></div><label class="token-field" hidden>Demo access token<input type="password" id="access-token" autocomplete="off" placeholder="Private demo token"></label><button id="generate-tryon" class="primary-button">Generate my try-on <span>✧</span></button><p id="tryon-message" class="small-note" role="status" aria-live="polite"></p></div></div></dialog>`;
   const get = <T extends HTMLElement>(selector: string) => root.querySelector<T>(selector)!;
   const query = get<HTMLTextAreaElement>('#search-query'); query.value = ''; query.placeholder = DEFAULT_QUERY;
   const rail = get<HTMLDivElement>('.product-rail');
@@ -122,7 +122,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     }
     if (activeTools) { assistantMessage('An action is already running. You can cancel it below.'); return; }
     const state = store.getState();
-    if (!state.selectedId) { assistantMessage('Search for a backpack and select one first.'); return; }
+    if (!state.selectedId) { assistantMessage('Search for a product and select one first.'); return; }
     const buying = plan.includes('prepare_checkout');
     if (buying) { checkoutVisible = true; if (!document.body.classList.contains('xr-active')) openCheckout(); } else openPhoto();
     if (plan.includes('generate_try_on')) {
@@ -212,7 +212,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     get<HTMLButtonElement>('#toggle-hands').textContent = running ? 'Pause hand controls' : 'Resume hand controls';
     const confirmed = gestureSelection !== null && gestureSelection === store.getState().selectedId;
     get('#gesture-selection').textContent = confirmed ? 'Selected. Frame your photo, then capture.'
-      : webcamState.phase === 'ready' && running ? 'Swipe to explore. Pinch to select this backpack.'
+      : webcamState.phase === 'ready' && running ? 'Swipe to explore. Pinch to select this product.'
       : 'Use arrows to browse. Enable webcam hand controls to swipe and pinch.';
   }
   async function startWebcam() {
@@ -246,6 +246,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     const note = get('#device-status');
     note.textContent = !window.isSecureContext ? 'Headset mode needs an HTTPS URL. Localhost on your laptop does not refer to the laptop from a Quest.' : !vr ? 'VR opens in Meta Quest Browser. Webcam shopping is available here.' : /OculusBrowser/i.test(navigator.userAgent) ? 'Quest ready · Use controller rays or hand pinch. Enter Quest AR for passthrough.' : '';
     note.hidden = !note.textContent;
+    render(store.getState());
   };
   void detectXR();
   get<HTMLButtonElement>('#enter-vr').onclick = () => { stopWebcam(); cancelVoice(); actions.enterVR(); };
@@ -255,6 +256,10 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
   get<HTMLButtonElement>('#next-product').onclick = () => store.move(1);
   rail.onkeydown = event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); store.move(event.key === 'ArrowLeft' ? -1 : 1); } };
   get<HTMLButtonElement>('#open-tryon').onclick = openPhoto;
+  get<HTMLButtonElement>('#generate-model').onclick = () => {
+    if (store.getState().modelStatus === 'ready') { if (!get<HTMLButtonElement>('#enter-ar').hidden) actions.enterAR?.(); }
+    else void store.generateModel();
+  };
   get<HTMLButtonElement>('#close-tryon').onclick = () => dialog.close();
   dialog.onclose = () => { stopWebcam(); cancelVoice(); };
   dialog.oncancel = () => { stopWebcam(); cancelVoice(); };
@@ -283,7 +288,8 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     const photo = await webcam.capture();
     if (photo && mounted && dialog.open) { webcamPhoto = true; store.setPhoto(photo); }
   };
-  get<HTMLInputElement>('#access-token').oninput = event => store.setAccessToken((event.target as HTMLInputElement).value);
+  get<HTMLInputElement>('#access-token').oninput = event => { const value = (event.target as HTMLInputElement).value; get<HTMLInputElement>('#model-token').value = value; store.setAccessToken(value); };
+  get<HTMLInputElement>('#model-token').oninput = event => { const value = (event.target as HTMLInputElement).value; get<HTMLInputElement>('#access-token').value = value; store.setAccessToken(value); };
   get<HTMLButtonElement>('#generate-tryon').onclick = () => { void dispatchPrompt('try it on'); };
   get<HTMLButtonElement>('#cancel-tools').onclick = stopWebcam;
   get<HTMLFormElement>('#dialog-command-form').onsubmit = event => { event.preventDefault(); void dispatchPrompt(get<HTMLInputElement>('#dialog-command').value); };
@@ -377,7 +383,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     if (store.getState().transcriptionEnabled && typeof navigator.mediaDevices?.getUserMedia === 'function' && typeof window.MediaRecorder === 'function') { void startRecording(); return; }
     if (recognition) {
       if (voice.classList.contains('listening')) { recognition.stop(); return; }
-      try { speechVersion = ++voiceVersion; recognition.start(); setListening(true); voiceMessage.textContent = 'Listening… Tell us about your backpack.'; }
+      try { speechVersion = ++voiceVersion; recognition.start(); setListening(true); voiceMessage.textContent = 'Listening… Tell us what you are looking for.'; }
       catch { voiceMessage.textContent = 'Voice is busy. Try again in a moment.'; }
       return;
     }
@@ -390,7 +396,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     img.onerror = () => { imageWrap.replaceChildren(node('span', 'image-missing', 'Preview unavailable')); };
     imageWrap.append(img);
     const text = node('div', 'product-info'); text.append(node('span', 'product-seller', product.seller), node('h3', '', product.title));
-    const bottom = node('div', 'product-bottom'); bottom.append(node('strong', '', formatPrice(product.price)), node('span', 'product-select', 'View pack ↗')); text.append(bottom);
+    const bottom = node('div', 'product-bottom'); bottom.append(node('strong', '', formatPrice(product.price)), node('span', 'product-select', 'View item ↗')); text.append(bottom);
     button.append(imageWrap, text); button.onclick = () => store.select(product.id); return button;
   }
   function renderAr(state: StoreState) {
@@ -405,7 +411,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     get('#ar-gesture-hint').textContent = activeTools ? 'Frame your shoulders and torso for the photo.'
       : confirmed ? 'Selected. Say “take a picture and try it on.”' : 'Swipe to browse · Pinch to select';
     const confirm = get<HTMLButtonElement>('#ar-confirm-backpack');
-    confirm.textContent = confirmed ? 'Selected ✓' : 'Select this backpack';
+    confirm.textContent = confirmed ? 'Selected ✓' : 'Select this product';
     confirm.disabled = !!activeTools || confirmed;
     for (const selector of ['#ar-previous', '#ar-next']) get<HTMLButtonElement>(selector).disabled = !!activeTools || state.products.length < 2;
     if (arProducts !== state.products || arSelected !== state.selectedId) {
@@ -419,7 +425,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
         const image = node('img', ''); image.src = product.imageUrl; image.alt = product.title; image.referrerPolicy = 'no-referrer';
         const title = node('span', 'ar-product-title', product.title);
         const price = node('strong', '', formatPrice(product.price));
-        const selected = node('span', 'ar-card-action', offset === 0 ? 'In focus' : 'View backpack ↗');
+        const selected = node('span', 'ar-card-action', offset === 0 ? 'In focus' : 'View item ↗');
         const footer = node('span', 'ar-card-footer'); footer.append(price, selected);
         button.append(seller, image, title, footer);
         button.onclick = () => { if (activeTools) return; gestureSelection = null; store.select(product.id); if (offset === 0) confirmBackpack(); };
@@ -437,7 +443,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     get('.checkout-review').hidden = !checkoutVisible;
     get('.dialog-heading .eyebrow').textContent = checkoutVisible ? 'YOUR CHECKOUT' : 'YOUR TRY-ON';
     get('#close-tryon').setAttribute('aria-label', checkoutVisible ? 'Close checkout' : 'Close try-on');
-    get('#dialog-title').textContent = checkoutVisible ? 'Review your backpack.' : 'See it on you.';
+    get('#dialog-title').textContent = checkoutVisible ? 'Review your item.' : 'Preview your pick.';
     const checkout = state.checkout;
     const checkoutProduct = checkout?.product ?? selected;
     if (checkoutProduct) {
@@ -447,7 +453,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
       get('#checkout-seller').textContent = checkoutProduct.seller;
       get('#checkout-price').textContent = formatPrice(checkoutProduct.price);
     }
-    get('#checkout-message').textContent = state.checkoutMessage || 'Prepare a checkout for this backpack.';
+    get('#checkout-message').textContent = state.checkoutMessage || 'Prepare checkout for this item.';
     const link = get<HTMLAnchorElement>('#checkout-continue');
     link.hidden = !checkout || state.checkoutStatus !== 'ready';
     if (checkout) link.href = checkout.continueUrl; else link.removeAttribute('href');
@@ -465,7 +471,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     get<HTMLButtonElement>('#search-button').disabled = state.status === 'searching';
     get('#search-button span').textContent = state.status === 'searching' ? 'Searching…' : 'Search';
     get('.selected-detail').hidden = !selected;
-    get('#result-count').textContent = state.status === 'searching' ? 'Searching Shopify…' : state.status === 'ready' ? `${state.products.length} ${state.products.length === 1 ? 'pack' : 'packs'} to explore` : 'Ready when you are';
+    get('#result-count').textContent = state.status === 'searching' ? 'Searching Shopify…' : state.status === 'ready' ? `${state.products.length} ${state.products.length === 1 ? 'product' : 'products'} to explore` : 'Ready when you are';
     get<HTMLButtonElement>('#previous-product').disabled = state.products.length < 2;
     get<HTMLButtonElement>('#next-product').disabled = state.products.length < 2;
     if (lastProducts !== state.products) {
@@ -473,7 +479,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
       rail.replaceChildren(...state.products.map(card));
       if (!state.products.length) {
         const empty = node('div', 'empty-rail');
-        empty.append(node('span', 'empty-mark', state.status === 'searching' ? '↗' : '✳'), node('div', '', state.status === 'searching' ? 'Checking prices, availability and camping details…' : state.status === 'ready' ? 'No matching packs this time. Try a different camping request.' : 'Real packs. Real prices. Your search brings them into view.'));
+        empty.append(node('span', 'empty-mark', state.status === 'searching' ? '↗' : '✳'), node('div', '', state.status === 'searching' ? 'Checking prices and availability…' : state.status === 'ready' ? 'No matching products this time. Try a broader search.' : 'Real products. Real prices. Your search brings them into view.'));
         rail.append(empty);
       }
       lastProducts = state.products;
@@ -501,10 +507,17 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
       get('#webcam-product-position').textContent = `${state.products.findIndex(p => p.id === selected.id) + 1} / ${state.products.length} · ${selected.title} · ${formatPrice(selected.price)}`;
       const confirmed = gestureSelection === selected.id;
       get<HTMLButtonElement>('#confirm-backpack').disabled = confirmed;
-      get<HTMLButtonElement>('#confirm-backpack').textContent = confirmed ? 'Backpack selected ✓' : 'Select this backpack';
+      get<HTMLButtonElement>('#confirm-backpack').textContent = confirmed ? 'Product selected ✓' : 'Select this product';
+      get<HTMLButtonElement>('#open-tryon').firstChild!.textContent = selected.previewMode === 'object' ? 'Preview beside me ' : 'Try it on ';
     }
     get('#setup-note').hidden = state.tryOnEnabled;
-    get('.token-field').hidden = !state.accessTokenRequired;
+    get('.tryon-dialog .token-field').hidden = !state.accessTokenRequired;
+    get('#model-controls').hidden = !state.modelEnabled || !selected;
+    get('#model-controls .token-field').hidden = selected?.id === PREPARED_VARIANT_ID;
+    get('#model-message').textContent = state.modelMessage || 'Generate a 3D model, then enter Quest AR to place it.';
+    const modelButton = get<HTMLButtonElement>('#generate-model');
+    modelButton.disabled = state.modelStatus === 'generating' || (state.modelStatus === 'ready' && get<HTMLButtonElement>('#enter-ar').hidden);
+    modelButton.textContent = state.modelStatus === 'generating' ? 'Generating 3D…' : state.modelStatus === 'ready' ? 'Enter Quest AR to place' : selected?.id === PREPARED_VARIANT_ID ? 'Load prepared 3D preview' : 'Generate 3D product';
     const cameraActive = webcamState.phase === 'requesting' || webcamState.phase === 'ready';
     const cameraBusy = cameraActive || webcamState.phase === 'capturing';
     video.hidden = !cameraActive;
@@ -529,7 +542,7 @@ export function mountDesktop(root: HTMLElement, actions: { enterVR: () => void; 
     get('.photo-comparison').hidden = cameraActive || !state.photoDataUrl;
     after.hidden = !state.tryOnImage;
     get('#after-placeholder').hidden = !!state.tryOnImage;
-    get('#after-placeholder').textContent = state.tryOnStatus === 'generating' ? 'Creating your backpack preview…' : state.tryOnStatus === 'error' ? 'Preview unavailable. Try generating again.' : 'Generate your try-on to compare.';
+    get('#after-placeholder').textContent = state.tryOnStatus === 'generating' ? 'Creating your product preview…' : state.tryOnStatus === 'error' ? 'Preview unavailable. Try generating again.' : 'Generate your preview to compare.';
     after.parentElement!.classList.toggle('generating', state.tryOnStatus === 'generating');
     renderHands();
     renderAr(state);

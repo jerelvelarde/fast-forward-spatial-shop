@@ -13,11 +13,12 @@ const units = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'e
 const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
 const spokenAmounts = new Map<string, number>();
 const belowHundred = (value: number): string => value < 20 ? units[value] : `${tens[Math.floor(value / 10)]}${value % 10 ? ` ${units[value % 10]}` : ''}`;
-for (let value = 1; value <= 150; value++) {
+for (let value = 1; value <= 500; value++) {
   if (value < 100) spokenAmounts.set(belowHundred(value), value);
   else {
+    const hundreds = Math.floor(value / 100);
     const tail = value % 100 ? ` ${belowHundred(value % 100)}` : '';
-    for (const prefix of ['one hundred', 'a hundred']) {
+    for (const prefix of hundreds === 1 ? ['one hundred', 'a hundred'] : [`${units[hundreds]} hundred`]) {
       spokenAmounts.set(`${prefix}${tail}`, value);
       if (tail) spokenAmounts.set(`${prefix} and${tail}`, value);
     }
@@ -56,13 +57,29 @@ export function httpsUrl(value: unknown): string {
   } catch { return ''; }
 }
 
+function displayImage(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'cdn.shopify.com' && /\.(?:jpe?g|png|webp)$/i.test(parsed.pathname)) {
+      parsed.searchParams.set('width', '512');
+      return parsed.toString();
+    }
+  } catch { /* Keep the verified URL unchanged. */ }
+  return url;
+}
+
 export function searchIntent(value: unknown): { query: string; budget: number } {
-  if (typeof value !== 'string' || value.trim().length < 3 || value.length > 300) throw new ApiError(400, 'Describe a camping backpack in 3–300 characters.');
+  if (typeof value !== 'string' || value.trim().length < 3 || value.length > 300) throw new ApiError(400, 'Describe a product in 3–300 characters.');
   const query = value.trim();
-  if (!/\b(backpack|rucksack|daypack|back pack)\b/i.test(query)) throw new ApiError(400, 'This demo searches camping backpacks. Try “camping backpack under 150 US dollars”.');
   if (/\b(EUR|GBP|CAD|AUD|euros?|pounds?|yen)\b|[€£¥]/i.test(query)) throw new ApiError(400, 'This demo supports prices in US dollars only.');
   const dollars = parseBudget(query);
-  return { query, budget: Math.min(15000, Math.round(dollars * 100)) };
+  return { query, budget: Math.min(50000, Math.round(dollars * 100)) };
+}
+
+function previewMode(text: string): Product['previewMode'] {
+  if (/\b(backpack|rucksack|daypack|back pack)\b/i.test(text)) return 'backpack';
+  if (/\b(jacket|coat|hoodie|shirt|sweater|dress|pants|trousers|jeans|shoes?|boots?|sneakers?|hat|cap|gloves?|sunglasses)\b/i.test(text)) return 'wearable';
+  return 'object';
 }
 
 export function normalizeProducts(payload: unknown, budget: number): Product[] {
@@ -74,18 +91,19 @@ export function normalizeProducts(payload: unknown, budget: number): Product[] {
     const description = plain(record(product.description).plain);
     const metadata = record(product.metadata);
     const evidence = [title, description, ...list(metadata.top_features), ...list(metadata.tech_specs)].join(' ');
-    if (!/\b(backpack|rucksack|daypack|back pack)\b/i.test(evidence) || !/\b(camping|hiking|trekking|backpacking|outdoor|trail)\b/i.test(evidence)) continue;
     for (const item of list(product.variants)) {
       const variant = record(item);
       const price = record(variant.price);
       const id = string(variant.id);
       const url = httpsUrl(variant.url);
       const media = [...list(variant.media), ...list(product.media)].map(record);
-      const imageUrl = media.filter(m => m.type === 'image').map(m => httpsUrl(m.url)).find(Boolean) ?? '';
-      if (!id || seen.has(id) || !url || !imageUrl || record(variant.availability).available !== true || price.currency !== 'USD' || !Number.isSafeInteger(price.amount) || Number(price.amount) <= 0 || Number(price.amount) >= Math.min(budget, 15000)) continue;
+      const imageUrls = [...new Set(media.filter(m => m.type === 'image').map(m => httpsUrl(m.url)).filter(Boolean))].slice(0, 4);
+      const imageUrl = imageUrls[0] ? displayImage(imageUrls[0]) : '';
+      if (!id || seen.has(id) || !url || !imageUrl || record(variant.availability).available !== true || price.currency !== 'USD' || !Number.isSafeInteger(price.amount) || Number(price.amount) <= 0 || Number(price.amount) >= budget) continue;
       seen.add(id);
       const sellerDomain = string(record(variant.seller).domain);
-      result.push({ ...(/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i.test(sellerDomain) ? { sellerDomain } : {}), id, title: plain(variant.title) || title, description: plain(record(variant.description).plain) || description, price: Number(price.amount), currency: 'USD', imageUrl, url, seller: plain(record(variant.seller).name) || 'Shopify merchant' });
+      const catalogProductId = string(product.id);
+      result.push({ ...(/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i.test(sellerDomain) ? { sellerDomain } : {}), ...(catalogProductId.startsWith('gid://shopify/') ? { catalogProductId } : {}), id, title: plain(variant.title) || title, description: plain(record(variant.description).plain) || description, price: Number(price.amount), currency: 'USD', imageUrl, imageUrls, previewMode: previewMode(`${plain(variant.title)} ${evidence}`), url, seller: plain(record(variant.seller).name) || 'Shopify merchant' });
     }
   }
   return result.slice(0, 12);
@@ -98,7 +116,7 @@ export async function searchCatalog(query: string, fetcher: typeof fetch = fetch
     response = await fetcher('https://mcp.shop.com/', {
       method: 'POST', cache: 'no-store', signal: AbortSignal.timeout(25000),
       headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'MCP-Protocol-Version': '2026-07-28', 'Mcp-Method': 'tools/call', 'Mcp-Name': 'search_catalog' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'search_catalog', arguments: { catalog: { query: `${intent.query}; camping hiking backpack`, context: { address_country: 'US', currency: 'USD' }, filters: { price: { max: intent.budget - 1 } }, pagination: { limit: 24 } } }, _meta: { 'io.modelcontextprotocol/protocolVersion': '2026-07-28', 'io.modelcontextprotocol/clientInfo': { name: 'fast-forward-spatial-shop', version: '0.1.0' }, 'io.modelcontextprotocol/clientCapabilities': {} } } }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'search_catalog', arguments: { catalog: { query: intent.query, context: { address_country: 'US', currency: 'USD' }, filters: { price: { max: intent.budget - 1 } }, pagination: { limit: 24 } } }, _meta: { 'io.modelcontextprotocol/protocolVersion': '2026-07-28', 'io.modelcontextprotocol/clientInfo': { name: 'fast-forward-spatial-shop', version: '0.1.0' }, 'io.modelcontextprotocol/clientCapabilities': {} } } }),
     });
   } catch { throw new ApiError(502, 'Shopify search could not connect. Please try again.'); }
   if (!response.ok) throw new ApiError(502, 'Shopify search is unavailable. Please try again.');
@@ -111,6 +129,6 @@ export async function searchCatalog(query: string, fetcher: typeof fetch = fetch
   const products = normalizeProducts(data, intent.budget);
   const notices = list(data.messages).map(m => typeof m === 'string' ? plain(m) : plain(record(m).message ?? record(m).text)).filter(Boolean).join(' ').slice(0, 800);
   const budgetLabel = (intent.budget / 100).toFixed(intent.budget % 100 ? 2 : 0);
-  const summary = products.length ? `${products.length} available outdoor backpacks below $${budgetLabel} USD. Prices exclude shipping and tax.` : `No available camping backpacks below $${budgetLabel} USD matched. Try a broader backpack search.`;
+  const summary = products.length ? `${products.length} available Shopify products below $${budgetLabel} USD. Prices exclude shipping and tax.` : `No available products below $${budgetLabel} USD matched. Try a broader search.`;
   return { products, query: intent.query, message: [summary, notices].filter(Boolean).join(' ') };
 }

@@ -8,4 +8,4 @@
  .status { font-size: 2.8; height: 17; }
  .label { font-size: 2; color: #c8f36b; }
 </style>
-<div class="root"><div class="label">YOUR VIRTUAL FITTING ROOM</div><div class="title">See it on you.</div><img id="preview" class="image" object-fit="cover" src="/ui/placeholder.svg"/><div id="status" class="status">Choose a pack, then add your photo in the browser.</div></div>
+<div class="root"><div class="label">YOUR PHOTO PREVIEW</div><div class="title">See your selection.</div><img id="preview" class="image" object-fit="cover" src="/ui/placeholder.svg"/><div id="status" class="status">Choose a product, then add your photo in the browser.</div></div>

@@ -1,36 +1,26 @@
-# Meta Quest 3 / model S3A
+# Trail on Meta Quest
 
-Model S3A is identified as Meta Quest 3 in [Meta's quick-start guide](https://fccid.io/2AGOZ-S3A/User-Manual/2AGOZ-S3A-QSG-6639320.pdf). This app targets Quest Browser using WebXR; no APK, desktop webcam, or PWA installation is required for headset shopping.
+Open [https://trailxr.vercel.app/](https://trailxr.vercel.app/) in Quest Browser. Use the HTTPS deployment; `localhost` on Quest refers to the headset itself.
 
-## Demo on the headset
+## Prepared 3D demo
 
-1. Open **https://fast-forward-spatial-shop-lime.vercel.app** in Quest Browser (or your own Vercel deployment). `localhost` on Quest refers to the headset, not your laptop. Configure `AI_GATEWAY_API_KEY` on the server for recorded voice transcription; try-on also needs `TRY_ON_ACCESS_TOKEN`.
-2. Allow microphone access when asked. Say or type **“Find a camping backpack under 150 USD.”** For recorded voice, press the microphone again to finish speaking.
-3. Choose **Enter Quest AR** for floating shopping cards in passthrough, or **Enter VR** for the camping showroom. The AR button appears only when the browser supports `immersive-ar`.
-4. Point a Touch Plus controller ray at a card and press its trigger. Browse with Previous/Next or the right thumbstick. Native hand rays/pinch can select buttons when Quest hand tracking is active.
-5. Select **Speak / stop**, say **“Buy this backpack”**, then press it again to finish recording. **Buy selected** runs the same tools without speech.
-6. The app checks the variant, availability and displayed price, prepares one checkout, exits immersive mode and displays the product, estimated totals and **Review and pay at merchant**. Open that link to review delivery, taxes and payment. The app never submits the order itself.
-7. Return to Trail to continue browsing or re-enter AR/VR.
+1. On the browser page, search **“Find me a camping backpack under 150 US dollars.”** The black 30L Stealth Angel backpack should appear first. Select it.
+2. Choose **Load prepared 3D preview**. The browser should report that Rich and the backpack are ready. This uses the bundled GLB and spends no Meshy credits.
+3. Choose **Enter Quest AR** and allow the XR request. Passthrough should show the room with shopping cards.
+4. Choose **Place in room** in the spatial controls. Point the right controller at a clear floor area and press the trigger when the placement ring appears. Walk around Rich to inspect the backpack. If surface hit testing is unavailable, the model is placed ahead of you.
+5. Use the right thumbstick or Previous/Next to browse; point and trigger to select another card. Switching products clears the old placement.
 
-Prepare a person photo and private demo token in the browser before entering immersive mode if demonstrating try-on. Quest passthrough is a composited environment: this app does **not** read headset camera pixels. The live webcam capture/gesture mode is a separate laptop workflow. See [Meta's WebXR mixed-reality documentation](https://developers.meta.com/vr/documentation/web/webxr-mixed-reality/).
+## Generate a new selected item
 
-## Build settings
+Search for a jacket, tent, another backpack, or other item and select its Shopify card. Enter the private demo token on the browser page, then choose **Generate 3D product**. The request sends the exact selected variant's available Shopify image URLs to Meshy 6 Lite. Generation may take several minutes. When it is ready, enter or return to Quest AR and choose **Place in room**. A new backpack is placed approximately on Rich's saved body; other products appear as standalone 3D objects. One product image can be enough for the API, but quality improves with more angles. Each new item costs Meshy API credits.
 
-- IWSDK uses the Quest 3 profile for local IWER development.
-- Production builds do not inject IWER; Quest uses native WebXR. Local emulator injection explicitly excludes OculusBrowser.
-- Native hand tracking is requested. Locomotion and physics are disabled for the stationary shopping scene.
-- AR hides the authored landscape; IWSDK's AR environment handling removes the opaque backdrop for passthrough.
-- Microphone permission blur does not repeat the XR-entry cleanup; leaving the page still releases media.
-- Checkout retries reuse their idempotency key and refresh an existing session when known. Sessions are kept only in tab memory. Cancellation stops the local action; a merchant checkout already created can remain open, but no payment is submitted.
+## Other controls
 
-## Headset acceptance test (physical device pending)
+- **Speak / stop** records a shopping request or command. Press again to finish. You can always type a search on the browser page.
+- **Photo preview** uses a photo uploaded or captured on the browser page and the private demo token. Quest passthrough does not expose camera pixels to this app; the webcam and gesture mode runs on a laptop.
+- **Buy selected** rechecks the exact Shopify variant, prepares quantity one, exits immersive mode, and opens a review with a merchant checkout link. Payment is handled by the merchant. Do not complete payment during a demo unless you intend to purchase.
+- **Enter VR** uses the virtual showroom; **Enter Quest AR** uses room passthrough. The AR button only appears if Quest Browser reports `immersive-ar` support.
 
-- Confirm secure connection and allow XR/microphone permissions in Quest Browser.
-- Enter AR and confirm room passthrough, readable cards and unobstructed controls. Enter VR separately and check the showroom returns.
-- Verify trigger/pinch selection, thumbstick browse, voice recording/stop and transcript.
-- Say “buy this backpack”; verify selected merchant, exact item, quantity one, price and browser handoff. Do not submit payment unless making a deliberate purchase.
-- Deny microphone permission once and verify Buy selected still works.
-- Exit/re-enter, switch tabs and return; confirm no lingering microphone/camera and no stale checkout for a new selection.
-- Check comfort/frame rate and arrange casting with the onsite Meta team.
+## Headset acceptance check
 
-The current verification covers code, API contracts, simulated speech/browser behavior, isolated spatial UI and desktop emulation. It is not a physical Quest certification.
+On a physical Quest, confirm microphone permission, readable cards, controller selection, thumbstick navigation, AR passthrough, floor placement and walk-around model scale. Test one non-backpack product and confirm its model is a standalone object. Verify checkout review and link without submitting payment. Desktop emulation and automated tests do not prove headset performance.

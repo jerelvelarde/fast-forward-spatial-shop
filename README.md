@@ -1,83 +1,52 @@
-# Trail — Fast Forward Spatial Shop
+# Trail — spatial Shopify shopping
 
-A voice-driven shopping agent that lets people discover backpacks, swipe through products in VR, and preview a selected backpack on a human. An entry concept for the Fast Forward Virtual Hackathon.
+Trail is a voice and text shopping experience for Meta Quest Browser. Search the live Shopify catalog, browse and select products in VR or passthrough AR, preview them with a photo, request a 3D model, and prepare a merchant checkout. The desktop page shares the same selected product and backend.
 
-**Status:** Prompt-first interface with voice/typed camera tools and AG-UI progress. Working build from Meta's IWSDK starter. Live Shopify search, desktop browsing, spatial cards, controller selection, laptop webcam capture, AI try-on, and voice-invoked merchant checkout are integrated. Live generation has been tested with a selected camping backpack. Quest 3 / S3A has native AR/VR entry and spatial voice/buy controls. Physical headset testing remains.
+**Live demo:** [trailxr.vercel.app](https://trailxr.vercel.app/) · [Quest walkthrough](docs/QUEST.md)
 
-![Prompt-first shopping interface](design/verify/prompt-first-home.jpg)
+## Demo paths
 
-![Shopping cards revealed after a live Shopify search](design/verify/prompt-first-results.jpg)
+- **Fast headset demo:** Search **“Find me a camping backpack under 150 US dollars.”** Select the black 30L Stealth Angel backpack, choose **Load prepared 3D preview**, enter Quest AR, then choose **Place in room**. A compressed, saved model of Rich with that exact backpack appears without another Meshy call. The Shopify variant ID is `gid://shopify/ProductVariant/36808158601`.
+- **Any selected Shopify product:** Search for a backpack, jacket, tent, or another product, select an item, and choose **Generate 3D**. The backend rechecks the selected variant and sends up to four verified Shopify images to Meshy. When ready, choose **Place in room** in Quest AR. Other backpacks are fitted approximately to the saved Rich body; other products appear as standalone room objects. This generation consumes Meshy credits and can take several minutes.
+- **Photo preview:** Upload or capture a person photo, enter the private demo token, and choose **Generate my try-on**. Wearables are shown on the person; other products are placed beside them. This is an AI image visualization, not a fit measurement.
+- **Checkout:** Choose **Buy selected** or say “buy this item.” The server rechecks the variant, price, availability and merchant, prepares quantity one, and hands off to merchant checkout. Trail never collects payment details or places the order.
 
-[Verification notes](design/VERIFICATION.md) distinguish tested behavior from the remaining headset and AI checks.
-
-**Live demo:** https://fast-forward-spatial-shop-lime.vercel.app — open this HTTPS URL in Quest Browser. Search, checkout, server voice transcription and AI try-on are deployed. Enter the private demo access token in the try-on dialog to generate a preview; browser-native speech is used where available as a fallback.
+The opening example remains a backpack because its saved 3D asset makes the judge demo quick. Search, selection, photo preview, checkout, and live 3D requests also support other product categories.
 
 ## Run locally
 
-Requires Node 22.12+ (or another version supported in `package.json`).
+Node 22.12+ is recommended. Copy `.env.example` to `.env.local`, then add your keys and a private token of at least 16 characters.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Open http://localhost:5173. Search, select a pack, choose **Try it on**, then **Use webcam**, upload a photo, or select **Use the video frame**. Product results are live; the app never substitutes fixture inventory. Set `AI_GATEWAY_API_KEY` in `.env.local` to use the microphone button with server transcription; typing follows the same search path. The separate [voice test page](public/voice-shop-test.html) remains available at `/voice-shop-test.html`.
+Open [localhost:5173](http://localhost:5173). The local Vite server handles `/api/*`. `AI_GATEWAY_API_KEY` enables server speech transcription and image previews; `MESHY_API_KEY` enables live 3D generation; `TRY_ON_ACCESS_TOKEN` guards both paid generation endpoints. Enter that token in the browser before a live request. Do not use a `VITE_` prefix for any secret. The saved 3D backpack preview needs no Meshy key or token.
 
-On a laptop, choose **Use webcam**, allow camera access, frame your shoulders and torso, then **Capture photo**. You can retake it before generating. A front view shows straps; a rear or three-quarter view shows more of the bag. The preview stays local, and only the captured still is sent when you choose **Generate my try-on**. Capture, Stop camera, closing the dialog, hiding the tab, or entering VR turns the camera off. Webcam capture requires HTTPS or localhost; plain HTTP over a LAN will not work.
+`npm run preview` serves static output only. Use `npm run dev` or Vercel to test APIs. The [voice test page](public/voice-shop-test.html) remains available at `/voice-shop-test.html`.
 
-### Voice and typed tool commands
+## 3D asset preparation and limits
 
-The opening screen contains only a voice/typing prompt. Ask **“Find a camping backpack under 150 USD”** to reveal live product cards, selection details, Webcam mode and Enter VR.
+The saved Rich model uses [Rich's supplied photo](public/demo/person.png). We isolated the person for reconstruction and prepared the selected backpack from three Shopify product views. The final [combined GLB](public/demo/rich-with-backpack.glb) is approximately 1.6 MB after polygon simplification, Draco geometry compression, and 1024-pixel WebP textures. [The body](public/demo/rich-body.glb) is used for live backpack previews. The full-resolution Meshy outputs are ignored locally and never deployed.
 
-After selecting a pack, type or say **“Take a picture and try it on.”** Enter your demo access token first in **Try it on** if generation is enabled. The app opens the camera, shows a three-second countdown, captures a still, generates the selected backpack preview and displays Before/After. **“Take a picture”** only captures; **“Try it on”** uses the current photo or captures one if missing. Use **Cancel action** or say/type **“Cancel”** to stop the sequence. Cancelling an already submitted generation discards its result; it may not stop provider billing.
+Live generation requests Meshy 6 Lite, standard geometry, a 30,000 polygon remesh target, and its minimum 2K texture option. The output is returned directly from Meshy's signed asset URL. Meshy URLs expire, so the saved demo GLB is bundled with the app. A live model's dimensions and orientation can vary; backpack placement on Rich is an approximate scale and pose, not a simulated fit. Rich's face and obscured clothing are inferred because the supplied photo is a rear view.
 
-Progress is driven by typed [AG-UI](https://github.com/ag-ui-protocol/ag-ui) run/tool events (`take_picture`, `generate_try_on`, `show_try_on`, `prepare_checkout`, `show_checkout`). The current router recognizes these explicit commands locally. There is no LLM planner, SSE agent endpoint or CopilotKit UI dependency. We retain custom shopping cards and IWSDK rendering; AG-UI provides the event contract for later agent-backend integration. Event payloads exclude photos and credentials.
+The one-time scripts in `scripts/prepare-rich-body.mjs` and `scripts/prepare-demo-backpack.mjs` create raw GLBs. They require Meshy credits and do not overwrite the optimized deployed files. Re-run them only when rebuilding the demo asset.
 
-### Voice checkout and buy
+## Quest use
 
-After selecting a backpack, say/type **“Buy this backpack”**, **“Buy it”** or **“Checkout.”** The agent rechecks the exact Shopify variant, merchant, availability and price, then calls Shop MCP `create_checkout` for **quantity one**. The review shows the item and estimated totals with a **Review and pay at merchant** link. In AR/VR, the app exits immersive mode to show this review in Quest Browser. Payment and order confirmation happen on the merchant's checkout page; the app never calls `complete_checkout` or collects card details.
+Open the HTTPS live URL in Quest Browser. Allow microphone and XR access. Search on the browser page, select a product, and choose **Enter Quest AR**. Controller trigger selects cards and places the 3D object on a detected surface; the right thumbstick or Previous/Next buttons browse products. If surface hit testing is unavailable, **Place in room** places the model ahead of the viewer. **Enter VR** opens the showroom without passthrough. Product cards, voice controls, photo preview and checkout controls are available in the spatial UI. Prepare a photo and private token in the browser page before entering immersive mode.
 
-Retries retain an idempotency key, then use `get_checkout` once the session is known. Changing the selected backpack clears the old review; errors hide the payment link. The $150 limit applies to product price, with shipping/tax confirmed at checkout. No photo or AI demo credential is sent to checkout.
+Quest passthrough is a composited environment; this app does not read Quest camera pixels. The live webcam and hand-gesture shopping mode runs on a laptop. The saved model has been inspected in a browser, but placement and performance still require a physical Quest check on the deployed build.
 
-![Deployed checkout review for the selected camping backpack](design/verify/checkout-review.jpg)
+## Architecture and verification
 
-### Webcam AR shopping and before/after
-
-In **Webcam mode**, the camera fills an AR shopping stage. Three translucent product cards float over the live image with perspective; the selected backpack is in the center. Swipe gestures, pinch selection, card clicks and the on-camera arrows all control that same selection. These are camera-relative overlays, not room-mapped anchors or body-occluded 3D objects.
-
-![Webcam AR shopping with a selected camping backpack](docs/images/webcam-ar-shopping.png)
-
-The screenshot uses the supplied demo frame as a simulated camera background. To preview this without granting camera access, open `/tests/browser/ar-preview.html` on the dev server and choose **Preview AR with demo frame**. That development-only preview uses live catalog results and disables paid generation.
-
-
-After searching, choose **Webcam mode** in the header (or **Use webcam** in the try-on dialog). Hand controls load on your device:
-
-1. Show one open hand and swipe left to see the next backpack, or right for the previous one. Directions follow the mirrored live preview. Pause briefly between swipes.
-2. Hold your thumb and index finger together for half a second to select the displayed backpack. This pauses gestures while keeping the camera on for framing. **Resume hand controls** lets you browse again.
-3. Capture your photo, then generate. Capture saves raw camera pixels, without the floating shopping cards. **Before** preserves the original still; **After** shows the AI result beside it. Changing the backpack clears the old After image. Captured photos are unmirrored even though the live preview acts like a mirror.
-
-Arrow buttons and **Select this backpack** are available while browsing; an active tool sequence temporarily locks selection. Gesture recognition runs in a local Web Worker; camera frames are never sent to a gesture service. It requires a browser with Worker, ImageBitmap and OffscreenCanvas support. This is live gesture input plus still-image try-on, not continuous AI video. Gesture timing is covered by automated tests; physical webcam accuracy still needs testing in your lighting and browser.
-
-For the managed Meta desktop emulator:
-
-```sh
-# Stop the plain dev server first if it is running.
-npm run dev:managed
-```
-
-In VR, use **Find backpacks**, point and trigger to select a card, and use the right thumbstick or Previous/Next buttons to browse. Prepare your photo and access token in the browser before entering VR. **Try on selected** displays the generated preview in the panel to your right. Desktop and VR share selection within the same tab.
-
-For model **S3A (Quest 3)**, follow the [headset guide](docs/QUEST.md). **Enter Quest AR** uses passthrough when supported; **Speak / stop** and **Buy selected** are available on the spatial controls.
-
-## Enable AI try-on
-
-Copy `.env.example` to `.env.local`, set `AI_GATEWAY_API_KEY` and a private `TRY_ON_ACCESS_TOKEN` of at least 16 characters, then restart the server. `AI_GATEWAY_API_KEY` also enables voice transcription. Enter the private demo token in the try-on dialog. Never use `VITE_` prefixes for credentials or commit real values. The token guards the paid generation endpoint; it stays only in browser memory.
-
-The endpoint uses AI SDK and `google/gemini-3.1-flash-image` through Vercel AI Gateway. Override `AI_GATEWAY_IMAGE_MODEL` if needed. It revalidates the selected Shopify variant and sends its verified product image plus the selected human photo to the model. Photos are limited to 2 MB and are not persisted by the application. Generation is an approximate image visualization, not body tracking or a 3D fit simulation.
-
-## Deploy and test
-
-Import this repository into Vercel using its Vite preset. `vercel.json` routes `/api/*` to the Node function and serves the built frontend. Configure the server environment variables to enable generation. Open the deployed HTTPS URL in Quest Browser and enter VR. `npm run preview` serves static output only; use the dev server or Vercel for API-backed testing.
+- `server/catalog.ts` searches Shop MCP, enforces the spoken USD budget, and maps each Shopify variant to an exact selectable product. The default cap is $150 if no budget is spoken; explicit caps up to $500 are accepted.
+- `server/model.ts` validates that the selected variant still occurs in the same Shopify query, returns the prepared model for the demo variant, or starts and polls a protected Meshy task for another product.
+- `src/store.ts` keeps selection and async tasks in sync. Switching products cancels the visible old result. A Meshy task ID is kept in session storage so the same browser tab can resume polling after a refresh.
+- `src/model-placement.ts` loads the GLB through IWSDK's asset manager and places it in Quest AR. `src/shopping.ts` binds spatial controls to the same store.
+- Voice and typed action commands use a bounded local router and AG-UI tool progress. They do not use a multi-turn LLM planner.
 
 ```sh
 npm run typecheck
@@ -85,83 +54,4 @@ npm test
 npm run build
 ```
 
-Local development retains IWER emulation. Production excludes it so Quest uses native WebXR. See the [Quest 3 / S3A setup and hardware checklist](docs/QUEST.md). Real webcam capture, headset readability, hand/controller comfort, and microphone behavior still need hardware testing. The integrated agent currently uses a bounded tool workflow with explicit budget parsing, not multi-turn LLM conversation. It uses Shop MCP for discovery and checkout preparation, with a merchant-hosted payment handoff.
-
-For the development-only browser regression harness, open `/tests/browser/webcam.html` on the dev server and choose **Run webcam regression**. It tests prompt-first UI, before/after state, the combined command, countdown cancellation, camera capture/cleanup and actual MediaPipe worker inference with a synthetic stream and mocked API responses. It does not open your camera or make paid generation calls, and is excluded from the production build.
-
-## The experience
-
-**“Find me a camping backpack under 150 US dollars.”**
-
-1. **Speak the request.** The user asks for a camping backpack under $150 USD.
-2. **Search Shopify.** The agent searches through Shopify's Shop MCP and checks that the returned options meet the camping use case and have a listed product price below $150 USD. Shipping and taxes are separate unless explicitly quoted.
-3. **Swipe through options.** The user swipes through shopping cards in the VR scene to compare backpack images, prices, and relevant details.
-4. **Select in VR.** The user clicks a backpack card using the VR interface.
-5. **See it on the human.** The agent generates a preview of the selected backpack worn by the person in a captured image or video frame, then displays that try-on in the scene.
-
-6. **Buy by voice.** Say “Buy this backpack,” review the checkout and finish payment with the merchant.
-
-The end goal is a continuous **search → swipe → select → try-on → checkout** experience. If no camping backpacks meet the budget, the agent explains that instead of silently showing unsuitable or more expensive products.
-
-The first device target is Meta Quest using WebXR, with a desktop preview for development and demos. Desktop emulation uses the Quest 3 profile.
-
-```mermaid
-flowchart LR
-    A[Camping backpack under 150 USD] --> B[Agent searches Shopify Shop MCP]
-    B --> C[Validate camping suitability and price]
-    C --> D[Swipe product cards in VR]
-    D --> E[Click a backpack card in VR]
-    E --> F[Generate backpack try-on on the human]
-    F --> G[Display the try-on preview in VR]
-    G --> H[Say buy this backpack]
-    H --> I[Prepare and review merchant checkout]
-    I --> J[User completes payment at merchant]
-```
-
-## End goal storyboard
-
-These generated images illustrate the intended interaction using frames from the demo video. They are concept mockups, not screenshots of a working app. The initial artwork uses everyday Aer backpacks, including a $199 alternative; it predates the camping request and does not represent a validated result set for the under-$150 budget. The implemented search must enforce the use case above.
-
-### Browse and swipe
-
-The agent presents product cards in a spatial carousel. The user swipes to compare options.
-
-![Concept of spatial backpack shopping cards](docs/images/01-shopping-cards.png)
-
-### Select a backpack in VR
-
-Clicking a card selects the backpack and reveals its details and a try-on action.
-
-![Concept of a selected backpack card in VR](docs/images/02-selected-card.png)
-
-### Preview the backpack on the human
-
-The agent applies the selected backpack to the person's captured image and shows the generated result. This is an approximate appearance preview; it does not establish physical fit, real-time body tracking, or a fitted 3D model.
-
-![AI concept of the man from the demo video wearing the selected backpack](docs/images/03-backpack-try-on.png)
-
-## Project documents
-
-The camping backpack flow in this README is the current use case.
-
-- [Hackathon entry brief](docs/ENTRY.md): problem, concept, demo story, and scope.
-- [Implementation architecture](docs/ARCHITECTURE.md): components, data flow, and integration decisions.
-- [MVP build checklist](docs/ROADMAP.md): milestones and acceptance criteria.
-
-## First build target
-
-Complete one path: spoken camping request → live matching backpacks below $150 USD → swipeable spatial cards → VR selection → generated backpack try-on on the human. Use image-based product cards and a captured-person preview for the first build.
-
-The implementation uses three visible spatial image cards backed by up to twelve live results. Browse changes which products are visible; selection and try-on remain tied to the exact variant. Shipping and tax are excluded from the product-price budget. Generated UI is composed from real product data; no product price or inventory is invented.
-
-## Starter attribution
-
-Based on [Meta's IWSDK v0 starter](https://github.com/meta-quest/iwsdk-v0-template) at commit `5185128c864e053d31741c30fa3dccf06ef77797`, with IWSDK 1.0.1. The Apache-2.0 license and upstream copyright notices are retained. The original demo room, robot and cube are replaced with the camping showroom. The storyboard and demo frame are supplied project assets; third-party catalog imagery remains served from its original URLs.
-
-## References
-
-- [Shop MCP quickstart](https://shop.dev/docs/quickstart)
-- [Fast Forward builder resources](https://vercel.notion.site/Builder-Resources-Fast-Forward-3f3e06b059c4818eba9ada18e6f32dc0)
-- [Shopify Global Catalog MCP](https://shopify.dev/docs/agents/catalog/global-catalog)
-- [Shopify catalog integration tutorial](https://shopify.dev/docs/agents/get-started/search-catalog)
-- [Meta WebXR overview](https://developers.meta.com/vr/documentation/web/webxr-overview/)
+The API and state tests use mocked providers. Physical headset acceptance should verify passthrough, trigger placement, model orientation and scale, speech permission, and checkout handoff without completing a purchase. Design history and earlier screenshots remain in [`design/`](design/) and [`docs/images/`](docs/images/).

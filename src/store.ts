@@ -17,13 +17,19 @@ export interface StoreState {
   checkoutStatus: 'idle' | 'preparing' | 'ready' | 'error';
   checkoutMessage: string;
   assistantMessage: string;
+  modelEnabled: boolean;
+  modelStatus: 'idle' | 'generating' | 'ready' | 'error';
+  modelProductId: string | null;
+  modelUrl: string | null;
+  modelMessage: string;
 }
 
 let state: StoreState = {
   products: [], selectedId: null, query: DEFAULT_QUERY, status: 'idle',
-  message: 'Your next adventure starts with a good pack.', photoDataUrl: null,
+  message: 'Tell Trail what you want to shop for.', photoDataUrl: null,
   tryOnStatus: 'idle', tryOnImage: null, tryOnMessage: '', tryOnEnabled: false, transcriptionEnabled: false,
   accessTokenRequired: false, checkout: null, checkoutStatus: 'idle', checkoutMessage: '', assistantMessage: '',
+  modelEnabled: false, modelStatus: 'idle', modelProductId: null, modelUrl: null, modelMessage: '',
 };
 const listeners = new Set<(state: StoreState) => void>();
 let searchController: AbortController | undefined;
@@ -32,11 +38,35 @@ let searchVersion = 0;
 let generationVersion = 0;
 let demoAccessToken = '';
 let checkoutController: AbortController | undefined;
+let modelController: AbortController | undefined;
+let modelVersion = 0;
+const modelTasks = new Map<string, string>();
+function cachedModelTask(productId: string): string | undefined {
+  const inMemory = modelTasks.get(productId);
+  if (inMemory) return inMemory;
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(`trail:model:${productId}`) ?? 'null');
+    if (typeof cached?.taskId === 'string' && Number.isFinite(cached?.createdAt) && Date.now() - cached.createdAt < 2 * 24 * 60 * 60 * 1000) return cached.taskId;
+  } catch { /* Session storage is optional. */ }
+  return undefined;
+}
+function rememberModelTask(productId: string, taskId: string): void {
+  modelTasks.set(productId, taskId);
+  try { sessionStorage.setItem(`trail:model:${productId}`, JSON.stringify({ taskId, createdAt: Date.now() })); } catch { /* In-memory cache still works. */ }
+}
+function forgetModelTask(productId: string): void {
+  modelTasks.delete(productId);
+  try { sessionStorage.removeItem(`trail:model:${productId}`); } catch { /* Nothing to remove. */ }
+}
 let checkoutVersion = 0;
 const checkoutAttempts = new Map<string, { requestId: string; id?: string }>();
 function clearCheckout() {
   checkoutVersion++; checkoutController?.abort();
   return { checkout: null, checkoutStatus: 'idle' as const, checkoutMessage: '', assistantMessage: '' };
+}
+function clearModel() {
+  modelVersion++; modelController?.abort();
+  return { modelStatus: 'idle' as const, modelProductId: null, modelUrl: null, modelMessage: '' };
 }
 
 function update(patch: Partial<StoreState>) {
@@ -64,9 +94,9 @@ export const store = {
   async configure() {
     try {
       const config = await responseBody(await fetch('/api/config'));
-      update({ transcriptionEnabled: config.transcriptionEnabled === true, tryOnEnabled: config.tryOnEnabled === true, accessTokenRequired: config.tryOnEnabled === true });
+      update({ transcriptionEnabled: config.transcriptionEnabled === true, tryOnEnabled: config.tryOnEnabled === true, modelEnabled: config.modelEnabled === true, accessTokenRequired: config.tryOnEnabled === true || config.modelEnabled === true });
     } catch {
-      update({ tryOnEnabled: false, transcriptionEnabled: false });
+      update({ tryOnEnabled: false, modelEnabled: false, transcriptionEnabled: false });
     }
   },
   async search(query = state.query) {
@@ -75,7 +105,7 @@ export const store = {
     searchController?.abort();
     searchController = new AbortController();
     const version = ++searchVersion;
-    update({ ...clearGeneration(), ...clearCheckout(), query: normalized, status: 'searching', products: [], selectedId: null, message: 'Searching the Shopify catalog for your next camping pack…' });
+    update({ ...clearGeneration(), ...clearCheckout(), ...clearModel(), query: normalized, status: 'searching', products: [], selectedId: null, message: 'Searching live Shopify products…' });
     try {
       const result: SearchResult = await responseBody(await fetch('/api/search', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -96,17 +126,85 @@ export const store = {
   },
   select(id: string) {
     if (id === state.selectedId || !state.products.some(product => product.id === id)) return;
-    update({ ...clearGeneration(), ...clearCheckout(), selectedId: id });
+    update({ ...clearGeneration(), ...clearCheckout(), ...clearModel(), selectedId: id });
   },
   setPhoto(photoDataUrl: string | null) {
     update({ ...clearGeneration(), photoDataUrl });
   },
   setAssistantMessage(assistantMessage: string) { update({ assistantMessage }); },
+  setModelMessage(modelMessage: string) { update({ modelMessage }); },
+  async downloadModelAsset(productId: string): Promise<Blob> {
+    const taskId = cachedModelTask(productId);
+    if (!taskId || state.modelProductId !== productId || state.modelStatus !== 'ready') throw new Error('Generate this product before placing it in Quest AR.');
+    const response = await fetch('/api/model', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'asset', taskId, accessToken: demoAccessToken }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(typeof body.error === 'string' ? body.error : 'The 3D file could not be downloaded.');
+    }
+    const bytes = Number(response.headers.get('content-length'));
+    if (Number.isFinite(bytes) && bytes > 64 * 1024 * 1024) throw new Error('This 3D file is too large for Quest.');
+    const blob = await response.blob();
+    if (blob.size < 20 || blob.size > 64 * 1024 * 1024) throw new Error('The 3D file is invalid or too large for Quest.');
+    return blob;
+  },
+  async generateModel(accessToken?: string) {
+    if (accessToken !== undefined) demoAccessToken = accessToken;
+    if (state.modelStatus === 'generating') return;
+    const productId = state.selectedId;
+    if (!productId) { update({ modelStatus: 'error', modelMessage: 'Select a product first.' }); return; }
+    if (!state.modelEnabled) { update({ modelStatus: 'error', modelMessage: '3D generation needs a Meshy API key on the server.' }); return; }
+    const version = ++modelVersion;
+    const controller = new AbortController(); modelController = controller;
+    update({ modelStatus: 'generating', modelProductId: productId, modelUrl: null, modelMessage: 'Preparing the selected product in 3D…' });
+    try {
+      let taskId = cachedModelTask(productId);
+      if (!taskId) {
+        const started = await responseBody(await fetch('/api/model', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+          body: JSON.stringify({ action: 'start', productId, query: state.query, accessToken: demoAccessToken }),
+        }));
+        if (started.productId !== productId) throw new Error('Model task did not match the selected product.');
+        if (started.status === 'ready' && typeof started.modelUrl === 'string' && started.modelUrl.startsWith('/demo/')) {
+          if (version === modelVersion) update({ modelStatus: 'ready', modelProductId: productId, modelUrl: started.modelUrl, modelMessage: 'Rich and this backpack are ready. Choose Place in room in Quest AR.' });
+          return;
+        }
+        if (typeof started.taskId !== 'string') throw new Error('Model task did not return an ID.');
+        taskId = started.taskId as string;
+        rememberModelTask(productId, taskId);
+      }
+      for (let attempt = 0; attempt < 90; attempt++) {
+        if (controller.signal.aborted || version !== modelVersion) return;
+        const result = await responseBody(await fetch('/api/model', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+          body: JSON.stringify({ action: 'status', taskId, accessToken: demoAccessToken }),
+        }));
+        if (version !== modelVersion) return;
+        if (result.status === 'ready' && typeof result.modelUrl === 'string' && result.modelUrl.startsWith('https://assets.meshy.ai/')) {
+          update({ modelStatus: 'ready', modelProductId: productId, modelUrl: result.modelUrl, modelMessage: '3D product ready. Choose Place in room in Quest AR.' });
+          return;
+        }
+        if (result.status === 'failed') { forgetModelTask(productId); throw new Error(typeof result.message === 'string' ? result.message : 'Meshy could not generate this model.'); }
+        update({ modelMessage: `Generating a low-poly 3D product… ${Math.round(Number(result.progress) || 0)}%` });
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => { controller.signal.removeEventListener('abort', abort); resolve(); }, 5000);
+          const abort = () => { clearTimeout(timer); reject(new DOMException('Cancelled', 'AbortError')); };
+          controller.signal.addEventListener('abort', abort, { once: true });
+        });
+      }
+      throw new Error('3D generation is taking longer than expected. Try again to resume the same task.');
+    } catch (error) {
+      if (version !== modelVersion || (error instanceof Error && error.name === 'AbortError')) return;
+      update({ modelStatus: 'error', modelMessage: error instanceof Error ? error.message : '3D generation failed.' });
+    }
+  },
   cancelCheckout() { if (state.checkoutStatus === 'preparing') update(clearCheckout()); },
   async prepareCheckout(signal?: AbortSignal) {
     if (state.checkoutStatus === 'preparing') return;
     const product = state.products.find(p => p.id === state.selectedId);
-    if (!product) { update({ checkoutStatus: 'error', checkoutMessage: 'Select a backpack first.' }); return; }
+    if (!product) { update({ checkoutStatus: 'error', checkoutMessage: 'Select a product first.' }); return; }
     const query = state.query;
     const key = JSON.stringify([query, product.id, product.price]);
     const attempt = checkoutAttempts.get(key) ?? { requestId: crypto.randomUUID() };
@@ -136,7 +234,7 @@ export const store = {
     if (accessToken !== undefined) demoAccessToken = accessToken;
     if (state.tryOnStatus === 'generating') return;
     if (!state.selectedId || !state.photoDataUrl) {
-      update({ tryOnStatus: 'error', tryOnMessage: 'Select a backpack and add a person photo first.' });
+      update({ tryOnStatus: 'error', tryOnMessage: 'Select a product and add a person photo first.' });
       return;
     }
     if (!state.tryOnEnabled) {
@@ -145,7 +243,7 @@ export const store = {
     }
     const version = ++generationVersion;
     generationController = new AbortController();
-    update({ tryOnStatus: 'generating', tryOnImage: null, tryOnMessage: 'Placing the selected backpack on your photo. This may take a moment…' });
+    update({ tryOnStatus: 'generating', tryOnImage: null, tryOnMessage: 'Creating a photo preview of the selected product. This may take a moment…' });
     try {
       const result = await responseBody(await fetch('/api/try-on', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: generationController.signal,

@@ -11,7 +11,7 @@ test('routes explicit picture commands with optional polite phrasing', () => {
 });
 
 test('routes explicit try-on commands', () => {
-  for (const text of ['try it on', 'try on the backpack', 'generate try-on', 'show me wearing it', 'Put this bag on me', 'Create my try on preview, please']) {
+  for (const text of ['try it on', 'try on the backpack', 'generate try-on', 'show me wearing it', 'Put this bag on me', 'Create my try on preview, please', 'preview this camping tent with my photo']) {
     assert.deepEqual(parseToolCommand(text), ['generate_try_on', 'show_try_on'], text);
   }
 });
@@ -58,7 +58,7 @@ test('a failed tool stops the plan and emits a safe message without raw service 
   const events: ToolStep[] = [];
   const tools = handlers(log);
   tools.generate_try_on = async () => { throw new Error('secret-provider-response'); };
-  await assert.rejects(runToolPlan(['take_picture', 'generate_try_on', 'show_try_on'], tools, step => events.push(step), new AbortController().signal), /try-on could not be generated/);
+  await assert.rejects(runToolPlan(['take_picture', 'generate_try_on', 'show_try_on'], tools, step => events.push(step), new AbortController().signal), /preview could not be generated/);
   assert.deepEqual(log, ['take_picture']);
   assert.equal(events[events.length - 1].status, 'error');
   assert.ok(events.every(step => !step.message.includes('secret-provider-response')));
@@ -157,7 +157,7 @@ test('AG-UI cancellation emits one terminal error and no stale tool result', asy
 
 
 test('buy and checkout commands prepare a review without a payment tool', () => {
-  for (const text of ['buy it', 'buy this backpack', 'I want to buy that bag', 'Please checkout', 'check out', 'proceed to checkout', 'open checkout']) {
+  for (const text of ['buy it', 'buy this backpack', 'buy this lamp', 'I want to buy that bag', 'Please checkout', 'check out', 'proceed to checkout', 'open checkout']) {
     assert.deepEqual(parseToolCommand(text), ['prepare_checkout', 'show_checkout']);
   }
   for (const text of ["don't buy it", 'buy this backpack tomorrow', 'find a backpack I can buy', 'buy two backpacks', 'pay 150 dollars']) assert.equal(parseToolCommand(text), null);

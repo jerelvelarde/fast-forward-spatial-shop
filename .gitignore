@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 node_modules/
+node_modules
 dist/
 build/
 .next/
@@ -10,4 +11,6 @@ build/
 coverage/
 .iwsdk/
 *.log
+.meshy-*-task.json
+public/demo/*.raw.glb
 public/hand-tracking/wasm/

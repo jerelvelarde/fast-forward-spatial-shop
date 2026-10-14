@@ -9,13 +9,13 @@ function variant(overrides: Record<string, unknown> = {}) {
 }
 const catalog = (variants: unknown[], title = 'Trail 40 camping backpack') => ({ products: [{ title, description: { plain: '<p>A pack for hiking.</p>' }, variants }] });
 
-test('budget parser enforces strict cap, lower budgets, and spoken default', () => {
+test('budget parser accepts broader products, explicit budgets, and spoken default', () => {
   assert.equal(searchIntent('camping backpack under 150 US dollars').budget, 15000);
   assert.equal(searchIntent('backpack below $99.50').budget, 9950);
-  assert.equal(searchIntent('camping backpack under 200 dollars').budget, 15000);
+  assert.equal(searchIntent('camping backpack under 200 dollars').budget, 20000);
   assert.equal(searchIntent('camping backpack under one hundred and fifty dollars').budget, 15000);
   assert.throws(() => searchIntent('backpack under 80 EUR'), /US dollars/);
-  assert.throws(() => searchIntent('buy a computer'), /camping backpacks/);
+  assert.equal(searchIntent('buy a computer').budget, 15000);
 });
 
 test('spoken lower budgets never silently become the default maximum', () => {
@@ -48,12 +48,18 @@ test('catalog excludes exact budget, other currency, out of stock, and missing m
   assert.equal(products[0].url, valid.url);
   assert.equal(products[0].id, valid.id);
   assert.equal(products[0].description, 'A pack for hiking.');
+  assert.match(products[0].imageUrl, /width=512/);
+  assert.equal(products[0].imageUrls?.[0], 'https://cdn.shopify.com/example.jpg');
   assert.equal(normalizeProducts(catalog([valid]), 10000).length, 0);
 });
 
-test('catalog rejects unrelated school products and unsafe links', () => {
+test('catalog accepts multiple product categories but rejects unsafe links', () => {
   const school = { products: [{ title: 'School backpack', description: { plain: 'For school and office' }, variants: [variant()] }] };
-  assert.equal(normalizeProducts(school, 15000).length, 0);
+  assert.equal(normalizeProducts(school, 15000)[0].previewMode, 'backpack');
+  const jacket = { products: [{ title: 'Rain jacket', variants: [variant({ id: 'jacket', title: 'Blue rain jacket' })] }] };
+  const tent = { products: [{ title: 'Camping tent', variants: [variant({ id: 'tent', title: 'Two-person tent' })] }] };
+  assert.equal(normalizeProducts(jacket, 15000)[0].previewMode, 'wearable');
+  assert.equal(normalizeProducts(tent, 15000)[0].previewMode, 'object');
   assert.equal(normalizeProducts(catalog([variant({ url: 'javascript:alert(1)' })]), 15000).length, 0);
 });
 

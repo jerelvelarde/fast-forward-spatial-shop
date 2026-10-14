@@ -72,7 +72,7 @@ const port = Number.parseInt(process.env.PORT ?? '', 10) || 5173;
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  for (const key of ['AI_GATEWAY_API_KEY', 'AI_GATEWAY_IMAGE_MODEL', 'TRY_ON_ACCESS_TOKEN']) {
+  for (const key of ['AI_GATEWAY_API_KEY', 'AI_GATEWAY_IMAGE_MODEL', 'TRY_ON_ACCESS_TOKEN', 'MESHY_API_KEY']) {
     if (env[key] && !process.env[key]) process.env[key] = env[key];
   }
   return {

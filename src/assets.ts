@@ -22,5 +22,6 @@ export default defineAssets({
   'shopping-controls': ui('shopping-controls'),
   'shopping-title': ui('shopping-title'),
   'try-on-panel': ui('try-on-panel'),
+  'rich-body': { url: `${import.meta.env.BASE_URL}demo/rich-body.glb`, type: AssetType.GLTF, priority: 'lazy' },
   landscape,
 });

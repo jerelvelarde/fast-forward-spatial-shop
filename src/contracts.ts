@@ -5,12 +5,16 @@ export interface Product {
   price: number;
   currency: 'USD';
   imageUrl: string;
+  imageUrls?: string[];
+  catalogProductId?: string;
+  previewMode: 'backpack' | 'wearable' | 'object';
   url: string;
   seller: string;
   sellerDomain?: string;
 }
 export interface SearchResult { products: Product[]; message: string; query: string }
 export const DEFAULT_QUERY = 'Find me a camping backpack under 150 US dollars';
+export const PREPARED_VARIANT_ID = 'gid://shopify/ProductVariant/36808158601';
 export const formatPrice = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount / 100);
 
 export interface CheckoutResult {
