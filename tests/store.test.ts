@@ -1,10 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { store } from '../src/store.js';
-import type { Product } from '../src/contracts.js';
+import { DEMO_PRODUCT, PREPARED_MODEL_URL, type Product } from '../src/contracts.js';
 
 const products: Product[] = ['one', 'two'].map((id, index) => ({ id, title: `Camping backpack ${id}`, price: 5000 + index, currency: 'USD', description: 'Hiking pack', seller: 'Test', url: 'https://example.com/pack', imageUrl: 'https://example.com/pack.png', previewMode: 'backpack' }));
 const result = (query: string) => Response.json({ products, query, message: 'Live results' });
+
+test('demo model selects the saved Shopify backpack without starting Meshy or searching', async t => {
+  const requests: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (url: string) => { requests.push(url); throw new Error('Unexpected network request'); });
+  store.useDemoModel();
+  assert.equal(store.getState().selectedId, DEMO_PRODUCT.id);
+  assert.equal(store.getState().modelProductId, DEMO_PRODUCT.id);
+  assert.equal(store.getState().modelUrl, PREPARED_MODEL_URL);
+  assert.equal(store.getState().modelStatus, 'ready');
+  assert.deepEqual(requests, []);
+});
 
 test('a late search cannot replace a more recent search', async t => {
   const pending: { resolve: (r: Response) => void; signal: AbortSignal }[] = [];

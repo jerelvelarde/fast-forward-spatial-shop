@@ -1,4 +1,4 @@
-import { DEFAULT_QUERY, type Product, type SearchResult, type CheckoutResult } from './contracts.js';
+import { DEFAULT_QUERY, DEMO_PRODUCT, PREPARED_MODEL_URL, type Product, type SearchResult, type CheckoutResult } from './contracts.js';
 
 export interface StoreState {
   products: Product[];
@@ -140,6 +140,17 @@ export const store = {
   },
   setAssistantMessage(assistantMessage: string) { update({ assistantMessage }); },
   setModelMessage(modelMessage: string) { update({ modelMessage }); },
+  useDemoModel() {
+    searchVersion++; searchController?.abort();
+    update({
+      ...clearGeneration(), ...clearCheckout(), ...clearModel(),
+      products: [DEMO_PRODUCT], selectedId: DEMO_PRODUCT.id, query: DEFAULT_QUERY,
+      status: 'ready', message: 'Demo backpack selected.',
+      modelStatus: 'ready', modelProductId: DEMO_PRODUCT.id, modelUrl: PREPARED_MODEL_URL,
+      modelMessage: 'Rich with the backpack is ready to view in Quest AR.',
+      assistantMessage: 'Demo backpack selected. Enter Quest AR to view Rich with the backpack.',
+    });
+  },
   async downloadModelAsset(productId: string): Promise<Blob> {
     const task = cachedModelTask(productId);
     if (!task || state.modelProductId !== productId || state.modelStatus !== 'ready') throw new Error('Generate this product before placing it in Quest AR.');
@@ -174,7 +185,7 @@ export const store = {
         }));
         if (started.productId !== productId) throw new Error('Model task did not match the selected product.');
         if (started.status === 'ready' && typeof started.modelUrl === 'string' && started.modelUrl.startsWith('/demo/')) {
-          if (version === modelVersion) update({ modelStatus: 'ready', modelProductId: productId, modelUrl: started.modelUrl, modelMessage: 'Rich and this backpack are ready. Choose Place in room in Quest AR.' });
+          if (version === modelVersion) update({ modelStatus: 'ready', modelProductId: productId, modelUrl: started.modelUrl, modelMessage: 'Rich with the backpack is ready to view in Quest AR.' });
           return;
         }
         if (typeof started.taskId !== 'string' || typeof started.ticket !== 'string') throw new Error('Model task did not return an ID.');
@@ -189,11 +200,11 @@ export const store = {
         }));
         if (version !== modelVersion) return;
         if (result.status === 'ready' && typeof result.modelUrl === 'string' && result.modelUrl.startsWith('https://assets.meshy.ai/')) {
-          update({ modelStatus: 'ready', modelProductId: productId, modelUrl: result.modelUrl, modelMessage: '3D product ready. Choose Place in room in Quest AR.' });
+          update({ modelStatus: 'ready', modelProductId: productId, modelUrl: result.modelUrl, modelMessage: 'Your 3D preview is ready to view in Quest AR.' });
           return;
         }
         if (result.status === 'failed') { forgetModelTask(productId); throw new Error(typeof result.message === 'string' ? result.message : 'Meshy could not generate this model.'); }
-        update({ modelMessage: `Generating a low-poly 3D product… ${Math.round(Number(result.progress) || 0)}%` });
+        update({ modelMessage: `Creating your 3D preview… ${Math.round(Number(result.progress) || 0)}%` });
         await new Promise<void>((resolve, reject) => {
           const timer = setTimeout(() => { controller.signal.removeEventListener('abort', abort); resolve(); }, 5000);
           const abort = () => { clearTimeout(timer); reject(new DOMException('Cancelled', 'AbortError')); };

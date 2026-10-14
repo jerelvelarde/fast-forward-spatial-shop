@@ -1,6 +1,6 @@
 import { createSystem, InputComponent, UIKitMLAsset, Vector3, VisibilityState, type UIKit } from '@iwsdk/core';
 import { store, type StoreState } from './store.js';
-import { DEFAULT_QUERY, PREPARED_VARIANT_ID, formatPrice } from './contracts.js';
+import { DEFAULT_QUERY, DEMO_PRODUCT, PREPARED_MODEL_URL, PREPARED_VARIANT_ID, formatPrice } from './contracts.js';
 
 const CARD_IDS = ['card-left', 'card-center', 'card-right'] as const;
 const PANEL_IDS = [...CARD_IDS, 'shopping-controls', 'shopping-title', 'try-on-panel'] as const;
@@ -31,6 +31,14 @@ export class ShoppingSystem extends createSystem({}) {
     };
     bind(controls, 'voice', () => window.dispatchEvent(new Event('trail:voice')));
     bind(controls, 'search', () => { this.selectedDetail = null; this.inRoom = false; if (store.getState().status !== 'searching') void store.search(DEFAULT_QUERY); });
+    bind(controls, 'demo-model', () => {
+      const alreadyShowingDemo = store.getState().modelUrl === PREPARED_MODEL_URL;
+      store.useDemoModel();
+      this.selectedDetail = DEMO_PRODUCT.id;
+      this.inRoom = true;
+      this.sync(store.getState());
+      if (alreadyShowingDemo) window.dispatchEvent(new Event('trail:place-model'));
+    });
     bind(controls, 'prev', () => store.move(-1));
     bind(controls, 'next', () => store.move(1));
     bind(controls, 'back', () => { this.selectedDetail = null; this.inRoom = false; this.sync(store.getState()); });
@@ -102,15 +110,16 @@ export class ShoppingSystem extends createSystem({}) {
     title.visible = !detail;
     title.requireElementById('root').setProperties({ display: title.visible ? 'flex' : 'none' });
     this.text(title, 'heading', this.listening ? 'Listening. What would you like?' : state.status === 'searching' ? 'Finding your next adventure...' : state.products.length ? 'Choose your next adventure.' : 'What are you looking for?');
-    this.text(title, 'status', state.status === 'error' ? state.message.slice(0, 140) : this.voiceStatus && state.status !== 'searching' ? this.voiceStatus.slice(0, 125) : state.status === 'searching' ? 'Searching live Shopify products...' : state.products.length ? `${state.products.length} options / ${state.query.slice(0, 75)}` : 'Say: find a camping backpack under 150 dollars.');
+    this.text(title, 'status', state.status === 'error' ? state.message.slice(0, 140) : this.voiceStatus && state.status !== 'searching' ? this.voiceStatus.slice(0, 125) : state.status === 'searching' ? 'Searching live Shopify products...' : state.modelUrl === PREPARED_MODEL_URL ? 'Demo backpack / saved 3D preview' : state.products.length ? `${state.products.length} options / ${state.query.slice(0, 75)}` : 'Say: find a camping backpack under 150 dollars.');
     const controls = this.panels.get('shopping-controls')!;
     this.text(controls, 'voice-label', this.listening ? 'Stop recording' : state.products.length ? 'Ask for something else' : 'Speak your request');
     for (const id of ['prev', 'next']) controls.requireElementById(id).setProperties({ display: state.products.length && !detail ? 'flex' : 'none' });
-    controls.requireElementById('voice').setProperties({ width: state.products.length && !detail ? 91 : 180 });
-    controls.requireElementById('search').setProperties({ display: !state.products.length ? 'flex' : 'none', width: 180 });
+    controls.requireElementById('voice').setProperties({ width: state.products.length && !detail ? 80 : 225 });
+    controls.requireElementById('search').setProperties({ display: !state.products.length ? 'flex' : 'none', width: 225 });
+    controls.requireElementById('demo-model').setProperties({ width: state.products.length && !detail ? 65 : 225, display: detail ? 'none' : 'flex' });
     // Welcome uses a stacked pair of large targets; browsing is a compact navigation dock.
     controls.requireElementById('primary-row').setProperties({ flexDirection: state.products.length ? 'row' : 'column' });
-    controls.requireElementById('root').setProperties({ height: !state.products.length ? 67 : 52 });
+    controls.requireElementById('root').setProperties({ height: !state.products.length ? 82 : 52 });
     controls.requireElementById('back').setProperties({ display: detail ? 'flex' : 'none' });
     this.text(controls, 'caption', state.status === 'error' ? state.message.slice(0, 140) : this.voiceStatus && (this.listening || !state.products.length) ? this.voiceStatus.slice(0, 125) : state.status === 'searching' ? 'Searching Shopify. Your cards will appear here.' : detail ? 'Your pick is ready. Point + pinch or press trigger.' : state.products.length ? `${index + 1} of ${state.products.length} / Pinch a card to open / Thumbstick to browse` : 'Point + pinch with your hand, or press controller trigger.');
     const preview = this.panels.get('try-on-panel')!;
@@ -122,7 +131,7 @@ export class ShoppingSystem extends createSystem({}) {
       this.text(preview, 'preview-title', selected.title.slice(0, 60));
       preview.requireElementById<UIKit.Image>('preview').setProperties({ src: state.tryOnImage ?? selected.imageUrl ?? placeholder });
       this.text(preview, 'status', (state.modelMessage || (prepared ? 'See Rich wearing this exact backpack. Saved 3D preview, ready now.' : 'Create a 3D preview, or try it on with a photo. Live 3D uses credits.')).slice(0, 140));
-      this.text(preview, 'model-label', state.modelStatus === 'generating' ? 'Preparing 3D...' : this.inRoom ? 'Place again' : prepared || state.modelStatus === 'ready' ? 'See it in my room' : 'Generate 3D preview');
+      this.text(preview, 'model-label', state.modelStatus === 'generating' ? 'Creating preview...' : this.inRoom ? 'Show in room again' : prepared || state.modelStatus === 'ready' ? 'See it in my room' : 'Create 3D preview');
       preview.requireElementById('model').setProperties({ backgroundColor: state.modelStatus === 'generating' ? '#46554a' : '#c8f36b' });
     }
     this.layout();
