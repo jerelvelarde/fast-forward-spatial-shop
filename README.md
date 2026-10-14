@@ -1,4 +1,4 @@
-# Trail — spatial Shopify shopping
+# TryitonAR — spatial Shopify shopping
 
 Trail is a voice and text shopping experience for Meta Quest Browser. Search the live Shopify catalog, browse and select products in VR or passthrough AR, preview them with a photo, request a 3D model, and prepare a merchant checkout. The desktop page shares the same selected product and backend.
 
