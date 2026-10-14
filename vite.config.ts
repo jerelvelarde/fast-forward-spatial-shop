@@ -31,7 +31,7 @@ function localApi(): Plugin {
             bytes += chunk.length;
             if (bytes > MAX_REQUEST_BYTES) {
               res.writeHead(413, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'Photo is too large. Choose a photo under 2 MB.' }));
+              res.end(JSON.stringify({ error: 'Request is too large. Use a shorter recording or a photo under 2 MB.' }));
               return;
             }
             chunks.push(Buffer.from(chunk));

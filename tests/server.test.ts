@@ -104,3 +104,21 @@ test('HTTP errors use correct status and never return cacheable catalog or confi
   const tooLarge = new Request('http://localhost/api/try-on', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': String(4 * 1024 * 1024) }, body: '{}' });
   assert.equal((await handleApi(tooLarge)).status, 413);
 });
+
+test('transcription route shares the app API and rejects missing config or invalid audio', async () => {
+  const prior = process.env.AI_GATEWAY_API_KEY;
+  try {
+    delete process.env.AI_GATEWAY_API_KEY;
+    const unavailable = await handleApi(new Request('http://localhost/api/transcribe', { method: 'POST', body: new FormData() }));
+    assert.equal(unavailable.status, 503);
+    assert.equal(unavailable.headers.get('cache-control'), 'no-store');
+    process.env.AI_GATEWAY_API_KEY = 'test-only-key';
+    const invalid = new FormData();
+    invalid.append('audio', new File(['not audio'], 'request.txt', { type: 'text/plain' }));
+    assert.equal((await handleApi(new Request('http://localhost/api/transcribe', { method: 'POST', body: invalid }))).status, 400);
+    assert.equal((await handleApi(new Request('http://localhost/api/transcribe'))).status, 405);
+  } finally {
+    if (prior === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = prior;
+  }
+});

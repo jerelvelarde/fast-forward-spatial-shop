@@ -17,7 +17,7 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:5173. Search, select a pack, choose **Try it on**, then **Use webcam**, upload a photo, or select **Use the video frame**. Product results are live; the app never substitutes fixture inventory. Use the microphone button where browser speech recognition is supported; typing follows the same search path.
+Open http://localhost:5173. Search, select a pack, choose **Try it on**, then **Use webcam**, upload a photo, or select **Use the video frame**. Product results are live; the app never substitutes fixture inventory. Set `AI_GATEWAY_API_KEY` in `.env.local` to use the microphone button with server transcription; typing follows the same search path. The separate [voice test page](public/voice-shop-test.html) remains available at `/voice-shop-test.html`.
 
 On a laptop, choose **Use webcam**, allow camera access, frame your shoulders and torso, then **Capture photo**. You can retake it before generating. A front view shows straps; a rear or three-quarter view shows more of the bag. The preview stays local, and only the captured still is sent when you choose **Generate my try-on**. Capture, Stop camera, closing the dialog, hiding the tab, or entering VR turns the camera off. Webcam capture requires HTTPS or localhost; plain HTTP over a LAN will not work.
 
@@ -32,7 +32,7 @@ In VR, use **Find backpacks**, point and trigger to select a card, and use the r
 
 ## Enable AI try-on
 
-Copy `.env.example` to `.env.local`, set `AI_GATEWAY_API_KEY` and a private `TRY_ON_ACCESS_TOKEN` of at least 16 characters, then restart the server. Enter the private demo token in the try-on dialog. Never use `VITE_` prefixes for credentials or commit real values. The token guards the paid generation endpoint; it stays only in browser memory.
+Copy `.env.example` to `.env.local`, set `AI_GATEWAY_API_KEY` and a private `TRY_ON_ACCESS_TOKEN` of at least 16 characters, then restart the server. `AI_GATEWAY_API_KEY` also enables voice transcription. Enter the private demo token in the try-on dialog. Never use `VITE_` prefixes for credentials or commit real values. The token guards the paid generation endpoint; it stays only in browser memory.
 
 The endpoint uses AI SDK and `google/gemini-3.1-flash-image` through Vercel AI Gateway. Override `AI_GATEWAY_IMAGE_MODEL` if needed. It revalidates the selected Shopify variant and sends its verified product image plus the selected human photo to the model. Photos are limited to 2 MB and are not persisted by the application. Generation is an approximate image visualization, not body tracking or a 3D fit simulation.
 
