@@ -4,6 +4,26 @@ Trail is a voice and text shopping experience for Meta Quest Browser. Search the
 
 **Live demo:** [trailxr.vercel.app](https://trailxr.vercel.app/) · [Quest walkthrough](docs/QUEST.md)
 
+## Experience preview
+
+The original AI-generated concept mockups use frames from the supplied demo video. Products and prices in these concepts are illustrative; live search enforces the requested budget.
+
+### Browse and swipe shopping cards
+
+![AI-generated concept of spatial backpack shopping cards](docs/images/01-shopping-cards.png)
+
+### Select a backpack
+
+![AI-generated concept of a selected backpack card in VR](docs/images/02-selected-card.png)
+
+### See the backpack on Rich
+
+![AI-generated concept of Rich wearing the selected backpack](docs/images/03-backpack-try-on.png)
+
+### Webcam AR shopping prototype
+
+![Webcam AR shopping interface with floating product cards and a selected backpack](docs/images/webcam-ar-shopping.png)
+
 ## Demo paths
 
 - **Fast headset demo:** Open the app in Quest Browser and choose **Enter your room**. Rich's saved 3D body appears in AR. Choose **Use demo model** in the spatial shopping controls to select the black 30L Stealth Angel backpack and show Rich wearing it immediately. The saved model uses no Meshy credits. The Shopify variant ID is `gid://shopify/ProductVariant/36808158601`.
