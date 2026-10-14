@@ -13,4 +13,5 @@ coverage/
 *.log
 .meshy-*-task.json
 public/demo/*.raw.glb
+work/raw/
 public/hand-tracking/wasm/

@@ -30,9 +30,9 @@ Open [localhost:5173](http://localhost:5173). The local Vite server handles `/ap
 
 The saved Rich model uses [Rich's supplied photo](public/demo/person.png). We isolated the person for reconstruction and prepared the selected backpack from three Shopify product views. The final [combined GLB](public/demo/rich-with-backpack.glb) is approximately 1.6 MB after polygon simplification, Draco geometry compression, and 1024-pixel WebP textures. [The body](public/demo/rich-body.glb) is used for live backpack previews. The full-resolution Meshy outputs are ignored locally and never deployed.
 
-Live generation requests Meshy 6 Lite, standard geometry, a 30,000 polygon remesh target, and its minimum 2K texture option. The output is returned directly from Meshy's signed asset URL. Meshy URLs expire, so the saved demo GLB is bundled with the app. A live model's dimensions and orientation can vary; backpack placement on Rich is an approximate scale and pose, not a simulated fit. Rich's face and obscured clothing are inferred because the supplied photo is a rear view.
+Live generation requests Meshy 6 Lite, standard geometry, a 30,000 polygon remesh target, and its minimum 2K texture option. Meshy's signed asset host omits browser CORS headers, so the finished GLB is streamed through `/api/model` and loaded from a local browser Blob URL. Meshy URLs expire, so the saved demo GLB is bundled with the app. A live model's dimensions and orientation can vary; backpack placement on Rich is an approximate scale and pose, not a simulated fit. Rich's face and obscured clothing are inferred because the supplied photo is a rear view.
 
-The one-time scripts in `scripts/prepare-rich-body.mjs` and `scripts/prepare-demo-backpack.mjs` create raw GLBs. They require Meshy credits and do not overwrite the optimized deployed files. Re-run them only when rebuilding the demo asset.
+The one-time scripts in `scripts/prepare-rich-body.mjs` and `scripts/prepare-demo-backpack.mjs` create raw GLBs under ignored `work/raw/`, outside Vite's public assets. They require Meshy credits and do not overwrite the optimized deployed files. Re-run them only when rebuilding the demo asset.
 
 ## Quest use
 

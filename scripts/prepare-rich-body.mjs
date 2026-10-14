@@ -1,10 +1,10 @@
-import { readFile, writeFile, rename, stat } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rename, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const photo = path.join(root, 'public/demo/rich-isolated.png');
-const destination = path.join(root, 'public/demo/rich-body.raw.glb');
+const destination = path.join(root, 'work/raw/rich-body.raw.glb');
 const taskFile = path.join(root, '.meshy-rich-isolated-task.json');
 const key = process.env.MESHY_API_KEY?.trim();
 
@@ -55,6 +55,7 @@ if (!modelResponse.ok) throw new Error(`Could not download the generated GLB (${
 const data = Buffer.from(await modelResponse.arrayBuffer());
 if (data.byteLength > 80 * 1024 * 1024 || data.toString('ascii', 0, 4) !== 'glTF') throw new Error('Generated file is not a valid GLB or exceeds 80 MB.');
 const temporary = `${destination}.tmp`;
+await mkdir(path.dirname(destination), { recursive: true });
 await writeFile(temporary, data);
 await rename(temporary, destination);
 console.log(`Saved ${path.relative(root, destination)} (${(await stat(destination)).size} bytes). Inspect its appearance before using it in the demo.`);
