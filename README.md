@@ -2,7 +2,7 @@
 
 A voice-driven shopping agent that lets people discover backpacks, swipe through products in VR, and preview a selected backpack on a human. An entry concept for the Fast Forward Virtual Hackathon.
 
-**Status:** Prompt-first interface with voice/typed camera tools and AG-UI progress. Working build from Meta's IWSDK starter. Live Shopify search, desktop browsing, spatial cards, controller selection, laptop webcam capture, and AI try-on are integrated. Live generation has been tested with a selected camping backpack. Physical webcam/Quest testing and deployment remain.
+**Status:** Prompt-first interface with voice/typed camera tools and AG-UI progress. Working build from Meta's IWSDK starter. Live Shopify search, desktop browsing, spatial cards, controller selection, laptop webcam capture, AI try-on, and voice-invoked merchant checkout are integrated. Live generation has been tested with a selected camping backpack. Quest 3 / S3A has native AR/VR entry and spatial voice/buy controls. Physical headset testing remains.
 
 ![Prompt-first shopping interface](design/verify/prompt-first-home.jpg)
 
@@ -29,7 +29,13 @@ The opening screen contains only a voice/typing prompt. Ask **“Find a camping 
 
 After selecting a pack, type or say **“Take a picture and try it on.”** Enter your demo access token first in **Try it on** if generation is enabled. The app opens the camera, shows a three-second countdown, captures a still, generates the selected backpack preview and displays Before/After. **“Take a picture”** only captures; **“Try it on”** uses the current photo or captures one if missing. Use **Cancel action** or say/type **“Cancel”** to stop the sequence. Cancelling an already submitted generation discards its result; it may not stop provider billing.
 
-Progress is driven by typed [AG-UI](https://github.com/ag-ui-protocol/ag-ui) run/tool events (`take_picture`, `generate_try_on`, `show_try_on`). The current router recognizes these explicit commands locally. There is no LLM planner, SSE agent endpoint or CopilotKit UI dependency. We retain custom shopping cards and IWSDK rendering; AG-UI provides the event contract for later agent-backend integration. Event payloads exclude photos and credentials.
+Progress is driven by typed [AG-UI](https://github.com/ag-ui-protocol/ag-ui) run/tool events (`take_picture`, `generate_try_on`, `show_try_on`, `prepare_checkout`, `show_checkout`). The current router recognizes these explicit commands locally. There is no LLM planner, SSE agent endpoint or CopilotKit UI dependency. We retain custom shopping cards and IWSDK rendering; AG-UI provides the event contract for later agent-backend integration. Event payloads exclude photos and credentials.
+
+### Voice checkout and buy
+
+After selecting a backpack, say/type **“Buy this backpack”**, **“Buy it”** or **“Checkout.”** The agent rechecks the exact Shopify variant, merchant, availability and price, then calls Shop MCP `create_checkout` for **quantity one**. The review shows the item and estimated totals with a **Review and pay at merchant** link. In AR/VR, the app exits immersive mode to show this review in Quest Browser. Payment and order confirmation happen on the merchant's checkout page; the app never calls `complete_checkout` or collects card details.
+
+Retries retain an idempotency key, then use `get_checkout` once the session is known. Changing the selected backpack clears the old review; errors hide the payment link. The $150 limit applies to product price, with shipping/tax confirmed at checkout. No photo or AI demo credential is sent to checkout.
 
 ### Webcam AR shopping and before/after
 
@@ -57,6 +63,8 @@ npm run dev:managed
 
 In VR, use **Find backpacks**, point and trigger to select a card, and use the right thumbstick or Previous/Next buttons to browse. Prepare your photo and access token in the browser before entering VR. **Try on selected** displays the generated preview in the panel to your right. Desktop and VR share selection within the same tab.
 
+For model **S3A (Quest 3)**, follow the [headset guide](docs/QUEST.md). **Enter Quest AR** uses passthrough when supported; **Speak / stop** and **Buy selected** are available on the spatial controls.
+
 ## Enable AI try-on
 
 Copy `.env.example` to `.env.local`, set `AI_GATEWAY_API_KEY` and a private `TRY_ON_ACCESS_TOKEN` of at least 16 characters, then restart the server. `AI_GATEWAY_API_KEY` also enables voice transcription. Enter the private demo token in the try-on dialog. Never use `VITE_` prefixes for credentials or commit real values. The token guards the paid generation endpoint; it stays only in browser memory.
@@ -73,7 +81,7 @@ npm test
 npm run build
 ```
 
-The build retains desktop IWER emulation from the starter. Real webcam capture, headset readability, hand/controller comfort, and microphone behavior still need hardware testing. The integrated agent currently uses a bounded tool workflow with explicit budget parsing, not multi-turn LLM conversation. It uses Shop MCP for discovery; no checkout/UCP purchase flow is implemented.
+Local development retains IWER emulation. Production excludes it so Quest uses native WebXR. See the [Quest 3 / S3A setup and hardware checklist](docs/QUEST.md). Real webcam capture, headset readability, hand/controller comfort, and microphone behavior still need hardware testing. The integrated agent currently uses a bounded tool workflow with explicit budget parsing, not multi-turn LLM conversation. It uses Shop MCP for discovery and checkout preparation, with a merchant-hosted payment handoff.
 
 For the development-only browser regression harness, open `/tests/browser/webcam.html` on the dev server and choose **Run webcam regression**. It tests prompt-first UI, before/after state, the combined command, countdown cancellation, camera capture/cleanup and actual MediaPipe worker inference with a synthetic stream and mocked API responses. It does not open your camera or make paid generation calls, and is excluded from the production build.
 
@@ -87,7 +95,9 @@ For the development-only browser regression harness, open `/tests/browser/webcam
 4. **Select in VR.** The user clicks a backpack card using the VR interface.
 5. **See it on the human.** The agent generates a preview of the selected backpack worn by the person in a captured image or video frame, then displays that try-on in the scene.
 
-The end goal is a continuous **search → swipe → select → try-on** experience. If no camping backpacks meet the budget, the agent explains that instead of silently showing unsuitable or more expensive products.
+6. **Buy by voice.** Say “Buy this backpack,” review the checkout and finish payment with the merchant.
+
+The end goal is a continuous **search → swipe → select → try-on → checkout** experience. If no camping backpacks meet the budget, the agent explains that instead of silently showing unsuitable or more expensive products.
 
 The first device target is Meta Quest using WebXR, with a desktop preview for development and demos. Desktop emulation uses the Quest 3 profile.
 
@@ -99,6 +109,9 @@ flowchart LR
     D --> E[Click a backpack card in VR]
     E --> F[Generate backpack try-on on the human]
     F --> G[Display the try-on preview in VR]
+    G --> H[Say buy this backpack]
+    H --> I[Prepare and review merchant checkout]
+    I --> J[User completes payment at merchant]
 ```
 
 ## End goal storyboard

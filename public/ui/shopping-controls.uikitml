@@ -2,10 +2,10 @@
   @font-face { font-family: "DM Sans"; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwAopxhTg.ttf"); font-weight: 400; }
   @font-face { font-family: "DM Sans"; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwARZthTg.ttf"); font-weight: 700; }
 
- .root { font-family: "DM Sans"; width: 250; height: 27; background-color: #17221f; border-radius: 4; flex-direction: column; align-items: center; gap: 3; padding-top: 3; color: #f0f3e9; }
+ .root { font-family: "DM Sans"; width: 250; height: 40; background-color: #17221f; border-radius: 4; flex-direction: column; align-items: center; gap: 3; padding-top: 3; color: #f0f3e9; }
  .row { flex-direction: row; gap: 3; }
  .button { height: 10; width: 42; justify-content: center; align-items: center; border-radius: 2; background-color: #2e4036; font-size: 3; }
  .primary { background-color: #c8f36b; color: #17221f; }
  .caption { font-size: 2.4; color: #adbbae; }
 </style>
-<div class="root"><div class="row"><button id="search" class="button primary">Find backpacks</button><button id="prev" class="button">Previous</button><button id="next" class="button">Next</button><button id="try-on" class="button primary">Try on selected</button><button id="exit" class="button">Exit VR</button></div><div id="caption" class="caption">Point + trigger to select / thumbstick to browse</div></div>
+<div class="root"><div class="row"><button id="search" class="button primary">Find backpacks</button><button id="prev" class="button">Previous</button><button id="next" class="button">Next</button><button id="try-on" class="button">Try on selected</button><button id="exit" class="button">Exit immersive</button></div><div class="row"><button id="voice" class="button"><span id="voice-label">Speak / stop</span></button><button id="checkout" class="button primary">Buy selected</button></div><div id="caption" class="caption">Say buy this backpack to prepare checkout</div></div>

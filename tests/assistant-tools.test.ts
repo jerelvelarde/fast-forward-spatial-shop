@@ -34,6 +34,8 @@ test('product requests, negation, and vague mentions do not trigger camera tools
 
 function handlers(log: ToolName[]): ToolHandlers {
   return {
+    prepare_checkout: async () => { log.push('prepare_checkout'); },
+    show_checkout: async () => { log.push('show_checkout'); },
     take_picture: async () => { log.push('take_picture'); },
     generate_try_on: async () => { log.push('generate_try_on'); },
     show_try_on: async () => { log.push('show_try_on'); },
@@ -101,7 +103,7 @@ test('AG-UI events validate against installed schemas and preserve call/result o
   const verifyBeforeExecution = async () => {
     assert.equal(events[events.length - 1].type, EventType.TOOL_CALL_END);
   };
-  const tools: ToolHandlers = { take_picture: verifyBeforeExecution, generate_try_on: verifyBeforeExecution, show_try_on: verifyBeforeExecution };
+  const tools: ToolHandlers = { prepare_checkout: verifyBeforeExecution, show_checkout: verifyBeforeExecution, take_picture: verifyBeforeExecution, generate_try_on: verifyBeforeExecution, show_try_on: verifyBeforeExecution };
   await runToolPlan(plan, tools, () => {}, new AbortController().signal, event => {
     assert.doesNotThrow(() => EventSchema.parse(event)); events.push(event);
   });
@@ -151,4 +153,12 @@ test('AG-UI cancellation emits one terminal error and no stale tool result', asy
   assert.deepEqual(events.map(event => event.type), [EventType.RUN_STARTED, EventType.TOOL_CALL_START, EventType.TOOL_CALL_ARGS, EventType.TOOL_CALL_END, EventType.RUN_ERROR]);
   const terminal = events[events.length - 1];
   assert.equal(terminal.type === EventType.RUN_ERROR && terminal.code, 'ABORTED');
+});
+
+
+test('buy and checkout commands prepare a review without a payment tool', () => {
+  for (const text of ['buy it', 'buy this backpack', 'I want to buy that bag', 'Please checkout', 'check out', 'proceed to checkout', 'open checkout']) {
+    assert.deepEqual(parseToolCommand(text), ['prepare_checkout', 'show_checkout']);
+  }
+  for (const text of ["don't buy it", 'buy this backpack tomorrow', 'find a backpack I can buy', 'buy two backpacks', 'pay 150 dollars']) assert.equal(parseToolCommand(text), null);
 });

@@ -50,9 +50,12 @@
   "dev": {
     "emulator": {
       "device": "metaQuest3",
-      "injectOnBuild": true,
+      "injectOnBuild": false,
       "activation": {
         "source": "^(localhost|127\\.0\\.0\\.1|.*\\.vercel\\.app|.*\\.vusercontent\\.net|.*\\.v0\\.build)$"
+      },
+      "userAgentException": {
+        "source": "OculusBrowser"
       }
     }
   }

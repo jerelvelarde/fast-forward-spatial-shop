@@ -1,4 +1,4 @@
-import { DEFAULT_QUERY, type Product, type SearchResult } from './contracts.js';
+import { DEFAULT_QUERY, type Product, type SearchResult, type CheckoutResult } from './contracts.js';
 
 export interface StoreState {
   products: Product[];
@@ -11,14 +11,19 @@ export interface StoreState {
   tryOnImage: string | null;
   tryOnMessage: string;
   tryOnEnabled: boolean;
+  transcriptionEnabled: boolean;
   accessTokenRequired: boolean;
+  checkout: CheckoutResult | null;
+  checkoutStatus: 'idle' | 'preparing' | 'ready' | 'error';
+  checkoutMessage: string;
+  assistantMessage: string;
 }
 
 let state: StoreState = {
   products: [], selectedId: null, query: DEFAULT_QUERY, status: 'idle',
   message: 'Your next adventure starts with a good pack.', photoDataUrl: null,
-  tryOnStatus: 'idle', tryOnImage: null, tryOnMessage: '', tryOnEnabled: false,
-  accessTokenRequired: false,
+  tryOnStatus: 'idle', tryOnImage: null, tryOnMessage: '', tryOnEnabled: false, transcriptionEnabled: false,
+  accessTokenRequired: false, checkout: null, checkoutStatus: 'idle', checkoutMessage: '', assistantMessage: '',
 };
 const listeners = new Set<(state: StoreState) => void>();
 let searchController: AbortController | undefined;
@@ -26,6 +31,13 @@ let generationController: AbortController | undefined;
 let searchVersion = 0;
 let generationVersion = 0;
 let demoAccessToken = '';
+let checkoutController: AbortController | undefined;
+let checkoutVersion = 0;
+const checkoutAttempts = new Map<string, { requestId: string; id?: string }>();
+function clearCheckout() {
+  checkoutVersion++; checkoutController?.abort();
+  return { checkout: null, checkoutStatus: 'idle' as const, checkoutMessage: '', assistantMessage: '' };
+}
 
 function update(patch: Partial<StoreState>) {
   state = { ...state, ...patch };
@@ -52,9 +64,9 @@ export const store = {
   async configure() {
     try {
       const config = await responseBody(await fetch('/api/config'));
-      update({ tryOnEnabled: config.tryOnEnabled === true, accessTokenRequired: config.tryOnEnabled === true });
+      update({ transcriptionEnabled: config.transcriptionEnabled === true, tryOnEnabled: config.tryOnEnabled === true, accessTokenRequired: config.tryOnEnabled === true });
     } catch {
-      update({ tryOnEnabled: false });
+      update({ tryOnEnabled: false, transcriptionEnabled: false });
     }
   },
   async search(query = state.query) {
@@ -63,7 +75,7 @@ export const store = {
     searchController?.abort();
     searchController = new AbortController();
     const version = ++searchVersion;
-    update({ ...clearGeneration(), query: normalized, status: 'searching', products: [], selectedId: null, message: 'Searching the Shopify catalog for your next camping pack…' });
+    update({ ...clearGeneration(), ...clearCheckout(), query: normalized, status: 'searching', products: [], selectedId: null, message: 'Searching the Shopify catalog for your next camping pack…' });
     try {
       const result: SearchResult = await responseBody(await fetch('/api/search', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -84,10 +96,39 @@ export const store = {
   },
   select(id: string) {
     if (id === state.selectedId || !state.products.some(product => product.id === id)) return;
-    update({ ...clearGeneration(), selectedId: id });
+    update({ ...clearGeneration(), ...clearCheckout(), selectedId: id });
   },
   setPhoto(photoDataUrl: string | null) {
     update({ ...clearGeneration(), photoDataUrl });
+  },
+  setAssistantMessage(assistantMessage: string) { update({ assistantMessage }); },
+  cancelCheckout() { if (state.checkoutStatus === 'preparing') update(clearCheckout()); },
+  async prepareCheckout(signal?: AbortSignal) {
+    if (state.checkoutStatus === 'preparing') return;
+    const product = state.products.find(p => p.id === state.selectedId);
+    if (!product) { update({ checkoutStatus: 'error', checkoutMessage: 'Select a backpack first.' }); return; }
+    const query = state.query;
+    const key = JSON.stringify([query, product.id, product.price]);
+    const attempt = checkoutAttempts.get(key) ?? { requestId: crypto.randomUUID() };
+    checkoutAttempts.set(key, attempt);
+    const version = ++checkoutVersion;
+    const controller = new AbortController(); checkoutController = controller;
+    update({ checkout: null, checkoutStatus: 'preparing', checkoutMessage: 'Checking availability and preparing your merchant checkout…' });
+    try {
+      const result: CheckoutResult = await responseBody(await fetch('/api/checkout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        signal: signal ? AbortSignal.any([signal, controller.signal]) : controller.signal,
+        body: JSON.stringify({ productId: product.id, query, expectedPrice: product.price, requestId: attempt.requestId, ...(attempt.id ? { checkoutId: attempt.id } : {}) }),
+      }));
+      if (version !== checkoutVersion || signal?.aborted) return;
+      if (result.product?.id !== product.id || result.quantity !== 1 || typeof result.id !== 'string' || typeof result.continueUrl !== 'string' || !result.continueUrl.startsWith('https://')) throw new Error('Invalid checkout response. Please retry.');
+      attempt.id = result.id;
+      update({ checkout: result, checkoutStatus: 'ready', checkoutMessage: 'Checkout ready. Review shipping, taxes and payment with the merchant. No order has been placed.' });
+    } catch (error) {
+      if (version !== checkoutVersion) return;
+      if (signal?.aborted || controller.signal.aborted) { update(clearCheckout()); return; }
+      update({ checkoutStatus: 'error', checkoutMessage: error instanceof Error ? error.message : 'Checkout could not finish. Retry to recover the same request.' });
+    }
   },
   cancelTryOn() { if (state.tryOnStatus === 'generating') update(clearGeneration()); },
   setAccessToken(token: string) { demoAccessToken = token; },

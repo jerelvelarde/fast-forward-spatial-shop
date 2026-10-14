@@ -19,6 +19,11 @@ export class ShoppingSystem extends createSystem({}) {
       element.addEventListener('click', action);
       this.cleanupFuncs.push(() => element.removeEventListener('click', action));
     };
+    bind(controls, 'voice', () => window.dispatchEvent(new Event('trail:voice')));
+    bind(controls, 'checkout', () => window.dispatchEvent(new Event('trail:checkout')));
+    const listening = (event: Event) => controls.requireElementById<UIKit.Text>('voice-label').setProperties({ text: (event as CustomEvent<boolean>).detail ? 'Stop recording' : 'Speak / stop' });
+    window.addEventListener('trail:listening', listening);
+    this.cleanupFuncs.push(() => window.removeEventListener('trail:listening', listening));
     bind(controls, 'search', () => { void store.search(); });
     bind(controls, 'prev', () => store.move(-1));
     bind(controls, 'next', () => store.move(1));
@@ -45,7 +50,7 @@ export class ShoppingSystem extends createSystem({}) {
         card.requireElementById('card').setProperties({ borderColor: selected ? '#c8f36b' : '#46554a', borderWidth: selected ? 0.5 : 0.2 });
       });
       text(title, 'status', state.status === 'searching' ? 'Searching Shopify for your next adventure…' : state.products.length ? `${state.products.length} live options / USD / under $150` : state.message.slice(0, 120));
-      text(controls, 'caption', state.products.length ? `${index + 1} of ${state.products.length} / Point + trigger to select / Thumbstick to browse` : 'Find backpacks to begin / Photo and demo access are prepared in the browser');
+      text(controls, 'caption', state.assistantMessage ? state.assistantMessage.slice(0, 125) : state.products.length ? `${index + 1} of ${state.products.length} / Point + trigger to select / Thumbstick to browse` : 'Find backpacks to begin / Photo and demo access are prepared in the browser');
       preview.requireElementById<UIKit.Image>('preview').setProperties({ src: state.tryOnImage ?? state.photoDataUrl ?? placeholder });
       text(preview, 'status', (state.tryOnMessage || (state.photoDataUrl ? 'Photo ready. Choose a pack and select Try on.' : 'Add your photo in the browser before entering VR.')).slice(0, 180));
     };

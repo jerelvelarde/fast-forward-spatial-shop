@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { World, VisibilityState } from '@iwsdk/core';
+import { World, VisibilityState, SessionMode } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
 import { ShoppingSystem } from './shopping.js';
 import { mountDesktop } from './desktop.js';
@@ -27,12 +27,17 @@ World.create(
   world.registerSystem(ShoppingSystem);
   const desktop = document.getElementById('desktop')!;
   mountDesktop(desktop, {
-    enterVR: () => { world.launchXR(); },
-    exitVR: () => { void world.exitXR(); },
+    enterVR: () => { world.launchXR({ sessionMode: SessionMode.ImmersiveVR }); },
+    enterAR: () => { world.launchXR({ sessionMode: SessionMode.ImmersiveAR }); },
+    exitVR: async () => { if (world.session) await world.session.end(); },
   });
+  let immersive = false;
   world.visibilityState.subscribe(value => {
     document.body.classList.toggle('xr-active', value !== VisibilityState.NonImmersive);
-    if (value !== VisibilityState.NonImmersive) window.dispatchEvent(new Event('trail:xr-enter'));
+    const active = value !== VisibilityState.NonImmersive;
+    world.requireSceneObject('landscape').visible = !active || world.session?.environmentBlendMode === 'opaque';
+    if (active && !immersive) window.dispatchEvent(new Event('trail:xr-enter'));
+    immersive = active;
   });
 }).catch(error => {
   console.error('IWSDK could not start', error);

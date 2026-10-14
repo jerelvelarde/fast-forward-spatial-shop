@@ -67,3 +67,14 @@ AG-UI event schemas, call/result ordering, redaction, failures and cancellation 
 The updated harness verifies three floating cards from four products, overlay containment in the camera stage, selection changes through browsing and exact card clicks, and overlay removal after capture. Decoding the captured JPEG confirms raw synthetic camera pixels, without product-card UI. The full 34-check browser regression passed, including the existing real-worker inference and combined tool/cancellation cases.
 
 `verify/webcam-ar.jpg` shows live catalog cards over the supplied demo frame via `/tests/browser/ar-preview.html`, a development-only simulated-camera preview with generation disabled. Visual inspection caught and fixed an inherited absolute-image style that obscured card text. The final cards have readable titles/prices, a highlighted center selection and perspective side cards. This verifies camera-relative UI, not physical room anchoring or actual gesture recognition accuracy.
+
+## Voice checkout and Quest 3 / S3A — October 14, 2026
+
+- Typecheck, 51 Node tests and production build passed. Build excludes the desktop emulator; the core IWSDK chunk still produces Vite's size warning (6.6 MB before gzip).
+- Browser checkout regression: 11 checks passed with synthetic speech and mocked catalog/checkout; typed/voice tool routing, two AG-UI tool results, immersive-exit handoff, selected item, no photo/token in checkout, stale-link removal and same-session retry.
+- Existing browser webcam regression: all 34 checks passed, including actual MediaPipe worker inference on synthetic frames, AR cards, countdown, before/after and cancellation.
+- A live Shop MCP checkout smoke call returned Scout 55L Hiking Backpacks, USD 99.99, quantity one, matching catalog variant, status `requires_escalation`, and a merchant continuation URL. No payment, contact details or order submission. Checkout session identifiers and URLs are intentionally excluded from repository evidence.
+- IWSDK isolated controls preview rendered successfully at `design/verify/quest-controls.png`; runtime `ui inspect` confirms the Speak / stop and Buy selected elements are visible and unclipped. Runtime logs contained no parser/font/UI errors.
+- Native Quest AR entry, production emulator exclusion and microphone-blur lifecycle are implemented. Physical S3A headset voice, passthrough, hand/controller interaction, frame rate and payment-page handoff still require the checklist in `docs/QUEST.md`. Do not equate synthetic browser tests with hardware validation.
+
+Browser regression page: `/tests/browser/checkout.html` (development only). No real purchases or camera/microphone access are needed by its fixtures.

@@ -1,6 +1,6 @@
 import { EventType, PROTOCOL_VERSION, type RunStartedEvent, type RunFinishedEvent, type RunErrorEvent, type ToolCallStartEvent, type ToolCallArgsEvent, type ToolCallEndEvent, type ToolCallResultEvent } from '@ag-ui/core';
 
-export type ToolName = 'take_picture' | 'generate_try_on' | 'show_try_on';
+export type ToolName = 'take_picture' | 'generate_try_on' | 'show_try_on' | 'prepare_checkout' | 'show_checkout';
 export type ToolEvent = RunStartedEvent | RunFinishedEvent | RunErrorEvent | ToolCallStartEvent | ToolCallArgsEvent | ToolCallEndEvent | ToolCallResultEvent;
 export interface ToolStep {
   tool: ToolName;
@@ -18,6 +18,7 @@ export function parseToolCommand(text: string): ToolName[] | null {
   let command = text.trim().toLowerCase().replace(/[’‘]/g, "'").replace(/[-–—]/g, ' ').replace(/\s+/g, ' ');
   if (!command || /\b(?:don't|dont|do not|not|never|no|stop|cancel)\b/.test(command)) return null;
   command = command.replace(/[.!?]+$/, '').replace(/^(?:(?:please|can you|could you|would you|will you)[, ]+){1,3}/, '').replace(/[, ]+please$/, '');
+  if (/^(?:(?:i want to )?buy (?:it|this|that|(?:the|this|that|selected) (?:backpack|bag|pack))|(?:proceed to |start |prepare |go to |open )?check ?out|purchase (?:it|this|that|the backpack))$/.test(command)) return ['prepare_checkout', 'show_checkout'];
   if (picture.test(command)) return ['take_picture'];
   if (tryOn.test(command)) return ['generate_try_on', 'show_try_on'];
   const steps = command.split(/(?:,? and then |,? and |,? then |, )/);
@@ -26,6 +27,8 @@ export function parseToolCommand(text: string): ToolName[] | null {
 }
 
 const messages: Record<ToolName, Record<ToolStep['status'], string>> = {
+  prepare_checkout: { running: 'Preparing your checkout…', done: 'Your merchant checkout is ready.', error: 'Checkout could not be prepared. Review the checkout message and retry.' },
+  show_checkout: { running: 'Opening checkout review…', done: 'Review your backpack, then continue to the merchant to pay.', error: 'Checkout review could not open. Exit VR and try again.' },
   take_picture: { running: 'Taking your picture…', done: 'Your picture is ready.', error: 'The picture could not be taken. Check the camera and try again.' },
   generate_try_on: { running: 'Generating your backpack try-on…', done: 'Your try-on is ready.', error: 'The try-on could not be generated. Check your photo and selected backpack, then try again.' },
   show_try_on: { running: 'Opening your try-on…', done: 'Showing your before and after.', error: 'The try-on could not be shown. Please try again.' },

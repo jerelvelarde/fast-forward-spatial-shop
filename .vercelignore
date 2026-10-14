@@ -1,0 +1,11 @@
+.env*
+.git/
+.iwsdk/
+.agents/
+node_modules/
+dist/
+design/
+docs/
+tests/
+work/
+*.log

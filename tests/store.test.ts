@@ -76,3 +76,42 @@ test('explicit cancellation discards a late generated image', async t => {
   assert.equal(store.getState().tryOnStatus, 'idle');
   assert.equal(store.getState().tryOnImage, null);
 });
+
+test('checkout retries reuse request identity, then refresh the returned session without photos or credentials', async t => {
+  const sent: Record<string, unknown>[] = [];
+  t.mock.method(globalThis, 'fetch', async (url: string, init?: RequestInit) => {
+    if (url === '/api/search') return result('camping checkout retry fixture');
+    sent.push(JSON.parse(String(init?.body)));
+    if (sent.length === 1) return Response.json({ error: 'Temporary failure' }, { status: 502 });
+    return Response.json({ id: 'checkout-fixture', quantity: 1, product: products[0], status: 'requires_escalation', continueUrl: 'https://example.com/checkout', totals: [] });
+  });
+  await store.search('camping checkout retry fixture');
+  await store.prepareCheckout(); assert.equal(store.getState().checkoutStatus, 'error');
+  await store.prepareCheckout(); assert.equal(store.getState().checkoutStatus, 'ready');
+  await store.prepareCheckout();
+  assert.equal(sent[0].requestId, sent[1].requestId);
+  assert.equal(sent[1].requestId, sent[2].requestId);
+  assert.equal(sent[2].checkoutId, 'checkout-fixture');
+  assert.ok(sent.every(body => !('photoDataUrl' in body) && !('accessToken' in body)));
+  store.select('two');
+  assert.equal(store.getState().checkout, null);
+});
+
+test('selection change and cancellation discard late checkout responses and prevent duplicate requests', async t => {
+  let finish!: (r: Response) => void;
+  let signal!: AbortSignal;
+  let count = 0;
+  t.mock.method(globalThis, 'fetch', (url: string, init?: RequestInit) => {
+    if (url === '/api/search') return Promise.resolve(result('camping checkout cancellation fixture'));
+    count++; signal = init!.signal!;
+    return new Promise<Response>(resolve => { finish = resolve; });
+  });
+  await store.search('camping checkout cancellation fixture');
+  const pending = store.prepareCheckout(); await store.prepareCheckout(); assert.equal(count, 1);
+  store.select('two'); assert.equal(signal.aborted, true);
+  finish(Response.json({ id: 'old', quantity: 1, product: products[0], continueUrl: 'https://example.com/old' })); await pending;
+  assert.equal(store.getState().checkout, null);
+  const cancelled = store.prepareCheckout(); store.cancelCheckout(); assert.equal(signal.aborted, true);
+  finish(Response.json({ id: 'cancelled', quantity: 1, product: products[1], continueUrl: 'https://example.com/cancelled' })); await cancelled;
+  assert.equal(store.getState().checkoutStatus, 'idle');
+});

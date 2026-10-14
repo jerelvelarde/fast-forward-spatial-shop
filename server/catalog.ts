@@ -84,7 +84,8 @@ export function normalizeProducts(payload: unknown, budget: number): Product[] {
       const imageUrl = media.filter(m => m.type === 'image').map(m => httpsUrl(m.url)).find(Boolean) ?? '';
       if (!id || seen.has(id) || !url || !imageUrl || record(variant.availability).available !== true || price.currency !== 'USD' || !Number.isSafeInteger(price.amount) || Number(price.amount) <= 0 || Number(price.amount) >= Math.min(budget, 15000)) continue;
       seen.add(id);
-      result.push({ id, title: plain(variant.title) || title, description: plain(record(variant.description).plain) || description, price: Number(price.amount), currency: 'USD', imageUrl, url, seller: plain(record(variant.seller).name) || 'Shopify merchant' });
+      const sellerDomain = string(record(variant.seller).domain);
+      result.push({ ...(/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i.test(sellerDomain) ? { sellerDomain } : {}), id, title: plain(variant.title) || title, description: plain(record(variant.description).plain) || description, price: Number(price.amount), currency: 'USD', imageUrl, url, seller: plain(record(variant.seller).name) || 'Shopify merchant' });
     }
   }
   return result.slice(0, 12);
