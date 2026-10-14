@@ -81,3 +81,7 @@ Browser regression page: `/tests/browser/checkout.html` (development only). No r
 
 - Production HTTPS deployment verified at https://fast-forward-spatial-shop-lime.vercel.app: prompt page loaded, live search returned 12 backpacks, and typed “Buy this backpack” prepared the selected Scout 55L at $99.99 with both AG-UI steps completed and a shop.app review link. Screenshot: `design/verify/checkout-review.jpg`. No order was submitted.
 - Production `/api/config` reports `tryOnEnabled: false` and `transcriptionEnabled: false`. Configuring existing credentials there awaits explicit user approval after automatic approval review blocked their upload. Browser-native speech remains a capability-dependent fallback; local server credentials remain intact.
+
+## Production AI configuration — October 14, 2026
+
+With explicit user approval, the existing AI Gateway key and demo token were stored as Vercel production Secrets; the image model was stored as Config. Redeployment `dpl_EJZRKcnGRLLb8if5WcmWBVBqoQUR` reached READY. The public `/api/config` reports both `tryOnEnabled: true` and `transcriptionEnabled: true`. Unauthenticated try-on returns 401; the approved token passes authorization and a missing photo returns 400. Transcription rejects missing audio with 400. These configuration checks made no paid model requests. Physical Quest microphone/passthrough testing remains pending.
