@@ -65,15 +65,15 @@
           const response = await fetch('/api/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text }),
+            body: JSON.stringify({ query: text }),
           });
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || 'Search failed.');
           if (sequence !== searchSequence) return;
-          warnings.textContent = (data.warnings || []).join(' ');
+          warnings.textContent = data.message || '';
           setStatus(data.products.length
             ? `${data.products.length} live products for “${data.query}”`
-            : 'No available products matched this request and price.');
+            : 'No available camping backpacks matched this request and price.');
           for (const product of data.products) {
             const card = document.createElement('article');
             card.className = 'card';
@@ -91,7 +91,7 @@
             const price = document.createElement('p');
             price.textContent = new Intl.NumberFormat('en-US', {
               style: 'currency', currency: product.currency,
-            }).format(product.priceMinor / 100);
+            }).format(product.price / 100);
             const link = document.createElement('a');
             link.href = product.url;
             link.target = '_blank';

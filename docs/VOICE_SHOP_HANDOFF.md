@@ -1,64 +1,25 @@
-# Voice and Shop handoff
+# Voice → Shop integration
 
-This branch supplies the first part of the demo: spoken or typed request → transcript → live Shop MCP products. It is designed to merge into the team's Meta IWSDK/Vite starter.
+The speech and search flow now uses the same API as the Meta IWSDK app:
 
-## Files
+1. The microphone button in the desktop companion records up to 10 seconds with `MediaRecorder` and sends a short audio clip to `POST /api/transcribe`.
+2. The server uses Vercel AI Gateway's `openai/gpt-4o-mini-transcribe` model and returns `{ "text": "..." }`.
+3. The confirmed transcript is shown in the search field and passed to `POST /api/search` as `{ "query": "..." }`.
+4. The existing catalog adapter calls Shop MCP, enforces the camping backpack and USD budget rules, and returns the product format used by both the desktop rail and VR cards.
 
-- `api/search.ts`: `POST /api/search` accepts `{ "text": "Find me a camping backpack under 150 US dollars" }`.
-- `api/_shop.ts`: parses the request, calls `search_catalog` live, and returns up to six available USD offers below the spoken budget.
-- `api/transcribe.ts`: `POST /api/transcribe` accepts multipart form data with an `audio` file and returns `{ "text": "..." }`.
-- `public/voice-shop-test.html`: a temporary browser page for checking the whole flow at `/voice-shop-test.html` after deployment.
+The microphone requires HTTPS or localhost, browser recording support, and a server-side `AI_GATEWAY_API_KEY`. Browsers without `MediaRecorder` can use the browser speech recognizer if available. Typing is always available.
 
-The search response is:
+## Local verification
 
-```json
-{
-  "query": "camping backpack",
-  "products": [
-    {
-      "productId": "gid://shopify/p/...",
-      "variantId": "gid://shopify/ProductVariant/...",
-      "title": "...",
-      "imageUrl": "https://...",
-      "priceMinor": 12900,
-      "currency": "USD",
-      "seller": "...",
-      "url": "https://...",
-      "available": true
-    }
-  ],
-  "warnings": []
-}
-```
-
-`imageUrl` can be absent. Use the returned product image directly; do not cache or re-host it. Keep `url` exactly as returned by Shop, including query parameters. The demo is explicitly scoped to US shoppers and USD prices.
-
-## Merge and configure
-
-1. Merge this branch into the IWSDK/Vite project. Keep the root `api/` and `public/voice-shop-test.html` paths.
-2. In the shared project, install `ai` and `@ai-sdk/gateway`. If strict TypeScript checking reports a missing `json-schema` declaration from the AI SDK, add `@types/json-schema` as a dev dependency.
-3. Add `AI_GATEWAY_API_KEY` to the Vercel project's environment variables. Do not put the key in Vite client environment variables or commit it.
-4. Deploy the project. Open `/voice-shop-test.html` on the HTTPS Vercel URL; type the demo request first, then test the microphone. Local Vite alone does not run root `api/` functions; use `vercel dev` or a deployed preview for the complete flow.
-5. The VR scene should call `/api/search` with the confirmed transcript or typed text and render `products`. It should show `warnings` and a clear empty or error state.
-
-## Test this branch on a laptop before the starter merges
-
-The voice branch can run its test page without a frontend scaffold. From the repository root, use Node 23 or newer:
+From the repo root:
 
 ```sh
-npm_config_cache=../npm-cache npm install --no-save --no-package-lock ai @ai-sdk/gateway
-node --experimental-strip-types --env-file-if-exists=.env.local scripts/dev-voice-shop.mjs
+npm ci
+cp .env.example .env.local
+# Set AI_GATEWAY_API_KEY in .env.local, then:
+npm run dev
 ```
 
-Open `http://127.0.0.1:4317/voice-shop-test.html` and click **Search live**. This tests the real Shop adapter. To test speech, create a local `.env.local` containing `AI_GATEWAY_API_KEY=...`, restart the server, and click **Start talking**. `.env.local` is ignored by Git. Grant microphone access to this localhost page when your browser asks. The browser must support `MediaRecorder`; if it does not, typed search still works.
+Open `http://localhost:5173` for the full app. The standalone test frontend remains at `http://localhost:5173/voice-shop-test.html`; it uses the same `/api/search` and `/api/transcribe` endpoints. Vite's local API middleware and the Vercel API function both call `server/http.ts`, so the test page does not require a separate server. `npm run preview` serves static files only.
 
-The local server is only a test harness. After the IWSDK/Vite starter merges, use the deployed Vercel `/api` routes for the headset test.
-
-## Verification already completed
-
-- Called Shop MCP live with the camping backpack request.
-- Confirmed Shop returned an over-budget product despite the price filter, then checked our own normalizer excludes it.
-- Confirmed `POST /api/search` returns six available USD products below $150 from live Shop data.
-- Typechecked all three API files and checked the test page script syntax.
-
-Speech still needs a real Gateway key and a deployed browser/headset microphone test. Typed search remains available if microphone permission is denied.
+Run `npm run typecheck`, `npm test`, and `npm run build` before deployment. Add `AI_GATEWAY_API_KEY` to the Vercel project environment, redeploy, then verify microphone search on the HTTPS URL and on Quest. The key must never use a `VITE_` prefix or appear in client code.
