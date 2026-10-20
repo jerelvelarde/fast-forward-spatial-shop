@@ -36,6 +36,15 @@ export interface CheckoutResult {
   status: string;
   continueUrl: string;
   product: Product;
-  quantity: 1;
+  quantity: number;
   totals: { label: string; amount: number }[];
+}
+/** A Universal Commerce Protocol checkout tool call sent to Shop MCP. */
+export interface UcpCommand { name: 'create_checkout' | 'get_checkout'; arguments: Record<string, unknown> }
+export interface VoiceCheckoutResult {
+  transcript: string;
+  quantity: number;
+  command: UcpCommand;
+  checkout: CheckoutResult;
+  redirectUrl: string;
 }
