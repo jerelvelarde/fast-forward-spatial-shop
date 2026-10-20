@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spatial Shop · Voice checkout</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+      body { max-width: 1100px; margin: auto; padding: 24px 16px; background: #10151e; color: #f4f7fb; }
+      h1 { margin-bottom: 8px; }
+      p { color: #bdc8d8; }
+      #products { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin: 24px 0; }
+      .card { display: block; overflow: hidden; background: #202b3a; border: 2px solid #34445a; border-radius: 12px; cursor: pointer; }
+      .card:has(input:checked) { border-color: #60d7bc; }
+      .card input { position: absolute; opacity: 0; }
+      .card:has(input:focus-visible) { outline: 2px solid #d6beff; outline-offset: 2px; }
+      .card img { width: 100%; height: 200px; object-fit: contain; background: white; }
+      .card div { padding: 12px 14px; }
+      .card h2 { font-size: 1rem; margin: 0 0 6px; }
+      .card p { margin: 4px 0; }
+      .controls { display: flex; flex-wrap: wrap; gap: 10px; }
+      input[type=text] { flex: 1 1 320px; min-width: 0; padding: 12px; font: inherit; border-radius: 8px; border: 1px solid #778399; background: #202b3a; color: white; }
+      button { padding: 12px 18px; font: inherit; font-weight: 700; border: 0; border-radius: 8px; background: #60d7bc; color: #0c1c20; cursor: pointer; }
+      button:disabled { opacity: .5; cursor: wait; }
+      #mic { background: #d6beff; }
+      #mic[aria-pressed=true] { background: #ff9d9d; }
+      #status { min-height: 24px; }
+      #status.error { color: #ffadad; }
+      #result[hidden] { display: none; }
+      #result { margin-top: 20px; padding: 16px; background: #202b3a; border-radius: 12px; }
+      pre { overflow-x: auto; padding: 12px; background: #0b1017; border-radius: 8px; font-size: .85rem; }
+      a { color: #70e1c7; }
+    </style>
+  </head>
+  <body>
+    <h1>Say it. Check out.</h1>
+    <p>Pick a product, press the mic and say “buy it” or “I'll take two”. Your voice is transcribed, turned into a Shopify UCP <code>create_checkout</code> call, and you're sent to the merchant's checkout to pay. Nothing is charged here.</p>
+    <fieldset id="products" aria-label="Sample products" style="border:0;padding:0"></fieldset>
+    <div class="controls">
+      <button id="mic" aria-pressed="false">🎙 Speak to buy</button>
+      <input type="text" id="typed" aria-label="Or type what you would say" placeholder="Or type it: “buy two of these”" maxlength="300" />
+      <button id="send">Check out</button>
+    </div>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section id="result" hidden>
+      <p><strong>Heard:</strong> <span id="heard"></span></p>
+      <p><strong>Quantity:</strong> <span id="quantity"></span> · <strong>Estimated total:</strong> <span id="total"></span></p>
+      <p><strong>UCP command sent to Shop MCP</strong></p>
+      <pre id="command"></pre>
+      <p id="redirect-note"></p>
+      <div class="controls"><a id="continue" rel="noopener">Go to checkout now ↗</a><button id="stay">Stay on this page</button></div>
+    </section>
+    <script type="module">
+      const $ = selector => document.querySelector(selector);
+      const status = $('#status');
+      const mic = $('#mic');
+      const send = $('#send');
+      const money = cents => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+      let products = [];
+      let recorder;
+      let redirectTimer;
+      let busy = false;
+
+      function setStatus(message, error = false) { status.textContent = message; status.classList.toggle('error', error); }
+      function setBusy(value) { busy = value; mic.disabled = value; send.disabled = value; }
+      const selected = () => products.find(product => product.id === document.querySelector('input[name=product]:checked')?.value);
+
+      async function loadProducts() {
+        try {
+          const response = await fetch('/api/sample-products');
+          const data = await response.json();
+          products = data.products;
+          $('#products').replaceChildren(...products.map((product, index) => {
+            const card = document.createElement('label');
+            card.className = 'card';
+            const radio = Object.assign(document.createElement('input'), { type: 'radio', name: 'product', value: product.id, checked: index === 0 });
+            const image = Object.assign(document.createElement('img'), { src: product.imageUrl, alt: product.title });
+            const body = document.createElement('div');
+            const heading = Object.assign(document.createElement('h2'), { textContent: product.title });
+            const seller = Object.assign(document.createElement('p'), { textContent: product.seller });
+            const price = Object.assign(document.createElement('p'), { textContent: money(product.price) });
+            body.append(heading, seller, price);
+            card.append(radio, image, body);
+            return card;
+          }));
+        } catch { setStatus('Sample products could not load. Is the dev server running?', true); }
+      }
+
+      async function checkout(fields) {
+        const product = selected();
+        if (!product) return setStatus('Choose a product first.', true);
+        clearTimeout(redirectTimer);
+        $('#result').hidden = true;
+        setBusy(true);
+        setStatus(fields.audio ? 'Transcribing and preparing your checkout…' : 'Preparing your checkout…');
+        try {
+          const form = new FormData();
+          form.append('product', JSON.stringify(product));
+          form.append('requestId', crypto.randomUUID());
+          for (const [key, value] of Object.entries(fields)) form.append(key, value);
+          const response = await fetch('/api/voice-checkout', { method: 'POST', body: form });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Checkout failed.');
+          $('#heard').textContent = `“${data.transcript}”`;
+          $('#quantity').textContent = String(data.quantity);
+          const total = data.checkout.totals.find(item => item.label === 'Estimated total');
+          $('#total').textContent = total ? money(total.amount) : money(data.checkout.product.price * data.quantity);
+          $('#command').textContent = JSON.stringify(data.command, null, 2);
+          $('#continue').href = data.redirectUrl;
+          $('#result').hidden = false;
+          setStatus('Checkout ready.');
+          let seconds = 4;
+          const tick = () => {
+            if (seconds === 0) { window.location.assign(data.redirectUrl); return; }
+            $('#redirect-note').textContent = `Redirecting to ${data.checkout.product.seller}'s checkout in ${seconds}…`;
+            seconds--;
+            redirectTimer = setTimeout(tick, 1000);
+          };
+          tick();
+        } catch (error) {
+          setStatus(error.message || 'Checkout failed.', true);
+        } finally { setBusy(false); }
+      }
+
+      async function toggleRecording() {
+        if (recorder?.state === 'recording') { recorder.stop(); return; }
+        if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return setStatus('Recording is unavailable in this browser. Type your command instead.', true);
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch { return setStatus('Microphone access was declined. Type your command instead.', true); }
+        const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(type => MediaRecorder.isTypeSupported(type));
+        recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        const chunks = [];
+        recorder.addEventListener('dataavailable', event => { if (event.data.size) chunks.push(event.data); });
+        recorder.addEventListener('stop', () => {
+          stream.getTracks().forEach(track => track.stop());
+          mic.setAttribute('aria-pressed', 'false');
+          mic.textContent = '🎙 Speak to buy';
+          const type = recorder.mimeType || mimeType || 'audio/webm';
+          void checkout({ audio: new File(chunks, type.includes('mp4') ? 'command.m4a' : 'command.webm', { type }) });
+        }, { once: true });
+        recorder.start();
+        mic.setAttribute('aria-pressed', 'true');
+        mic.textContent = '■ Stop';
+        setStatus('Listening… say “buy it”, then press Stop.');
+        setTimeout(() => { if (recorder?.state === 'recording') recorder.stop(); }, 8000);
+      }
+
+      mic.addEventListener('click', () => { if (!busy) void toggleRecording(); });
+      send.addEventListener('click', () => {
+        const text = $('#typed').value.trim();
+        if (!text) return setStatus('Type what you would say, such as “buy it”.', true);
+        void checkout({ transcript: text });
+      });
+      $('#typed').addEventListener('keydown', event => { if (event.key === 'Enter') send.click(); });
+      $('#stay').addEventListener('click', () => { clearTimeout(redirectTimer); $('#redirect-note').textContent = 'Redirect cancelled. Use the link when you are ready.'; });
+      void loadProducts();
+    </script>
+  </body>
+</html>

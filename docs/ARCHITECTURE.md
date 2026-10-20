@@ -16,7 +16,9 @@ Vite + TypeScript, Meta IWSDK 1.0.1, a Node API and AI SDK 7. The official start
 | `src/assets.ts` | Pure manifest, reused by runtime and editor |
 | `public/scenes/main.iwsdk.scene.json` | Stationary arc, title, controls, try-on panel, landscape |
 | `server/catalog.ts` | Validated budget, Shop MCP request, live variant normalization |
-| `server/checkout.ts` | Revalidate selection, create/recover one Shop checkout and validate merchant continuation |
+| `server/checkout.ts` | Revalidate selection, build the UCP checkout command, create/recover one Shop checkout and validate merchant continuation |
+| `server/voice-checkout.ts` | `POST /api/voice-checkout`: product info + spoken command → transcript → quantity → UCP `create_checkout` → merchant redirect |
+| `server/sample-products.ts` | Demo catalog of real Shopify variants served by `GET /api/sample-products` |
 | `server/try-on.ts` | Private token guard, photo validation, catalog revalidation, Gateway generation |
 | `server/http.ts` | Web Request/Response routes and bounded JSON bodies |
 | `vite.config.ts` / `api/index.ts` | Local middleware / Vercel fetch adapter |

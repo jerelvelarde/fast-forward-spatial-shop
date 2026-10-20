@@ -1,7 +1,9 @@
 import { prepareCheckout } from './checkout.js';
 import { ApiError, searchCatalog, searchIntent } from './catalog.js';
 import { generateTryOn, tryOnEnabled } from './try-on.js';
-import { transcribeAudio } from './transcribe.js';
+import { transcribeAudio, transcriptionEnabled } from './transcribe.js';
+import { voiceCheckout } from './voice-checkout.js';
+import { SAMPLE_PRODUCTS } from './sample-products.js';
 import { downloadModelAsset, getBackpackModel, modelEnabled, startBackpackModel } from './model.js';
 
 export const MAX_REQUEST_BYTES = 3 * 1024 * 1024;
@@ -29,13 +31,21 @@ async function readJson(request: Request): Promise<Record<string, unknown>> {
 }
 
 export async function handleApi(request: Request): Promise<Response> {
-  const path = new URL(request.url).pathname.replace(/\/$/, '');
+  const url = new URL(request.url);
+  const path = url.pathname.replace(/\/$/, '');
   try {
-    if (!['/api/config', '/api/search', '/api/try-on', '/api/transcribe', '/api/checkout', '/api/model'].includes(path)) return json({ error: 'API route not found.' }, 404);
-    const method = path === '/api/config' ? 'GET' : 'POST';
+    if (!['/api/config', '/api/sample-products', '/api/search', '/api/try-on', '/api/transcribe', '/api/checkout', '/api/voice-checkout', '/api/model'].includes(path)) return json({ error: 'API route not found.' }, 404);
+    const method = path === '/api/config' || path === '/api/sample-products' ? 'GET' : 'POST';
     if (request.method !== method) return new Response(JSON.stringify({ error: `Use ${method} for this endpoint.` }), { status: 405, headers: { Allow: method, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-    if (path === '/api/config') return json({ tryOnEnabled: tryOnEnabled(), modelEnabled: modelEnabled(), transcriptionEnabled: Boolean(process.env.AI_GATEWAY_API_KEY?.trim()) });
+    if (path === '/api/config') return json({ tryOnEnabled: tryOnEnabled(), modelEnabled: modelEnabled(), transcriptionEnabled: transcriptionEnabled() });
+    if (path === '/api/sample-products') return json({ products: SAMPLE_PRODUCTS });
     if (path === '/api/transcribe') return json(await transcribeAudio(request));
+    if (path === '/api/voice-checkout') {
+      const result = await voiceCheckout(request);
+      // ?redirect=1 lets a plain HTML form post land directly on the merchant checkout.
+      if (url.searchParams.get('redirect') === '1') return new Response(null, { status: 303, headers: { Location: result.redirectUrl, 'Cache-Control': 'no-store' } });
+      return json(result);
+    }
     const body = await readJson(request);
     if (path === '/api/search') return json(await searchCatalog(searchIntent(body.query).query));
     if (path === '/api/checkout') return json(await prepareCheckout(body));
